@@ -1,0 +1,11 @@
+# Secrets and private notes
+.env
+*.env
+myNotes.txt
+
+# Python cache & build
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+env/
