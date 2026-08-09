@@ -51,12 +51,12 @@ class MassiveClient:
                 data = resp.json()
                 results = data.get("results", [{}])[0]
                 return {
-                    "ticker": symbol,
-                    "close_price": results.get("c", 150.0),
-                    "open_price": results.get("o", 148.5),
-                    "high_price": results.get("h", 152.0),
-                    "low_price": results.get("l", 147.8),
-                    "volume": results.get("v", 10500000),
+                    "ticker": str(symbol),
+                    "close_price": float(results.get("c", 150.0)),
+                    "open_price": float(results.get("o", 148.5)),
+                    "high_price": float(results.get("h", 152.0)),
+                    "low_price": float(results.get("l", 147.8)),
+                    "volume": int(results.get("v", 10500000)),
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
         except Exception as e:
@@ -73,14 +73,14 @@ class MassiveClient:
         }
         data = mock_prices.get(symbol, {"close": 150.0, "open": 148.0, "high": 152.0, "low": 147.0, "vol": 15000000, "name": f"{symbol} Corp", "sector": "General"})
         return {
-            "ticker": symbol,
-            "close_price": data["close"],
-            "open_price": data["open"],
-            "high_price": data["high"],
-            "low_price": data["low"],
-            "volume": data["vol"],
-            "name": data.get("name", symbol),
-            "sector": data.get("sector", "Technology"),
+            "ticker": str(symbol),
+            "close_price": float(data["close"]),
+            "open_price": float(data["open"]),
+            "high_price": float(data["high"]),
+            "low_price": float(data["low"]),
+            "volume": int(data["vol"]),
+            "name": str(data.get("name", symbol)),
+            "sector": str(data.get("sector", "Technology")),
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
