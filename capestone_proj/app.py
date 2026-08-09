@@ -173,6 +173,17 @@ def safe_str(val, fallback="N/A"):
         return fallback
     return str(val)
 
+def safe_num(val, fallback=0.0):
+    """Safely cast any DB numeric value (decimal.Decimal, int, float, None) to float.
+    pg8000 returns PostgreSQL NUMERIC columns as decimal.Decimal — always use this
+    before arithmetic or f-string formatting."""
+    if val is None:
+        return fallback
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return fallback
+
 def sentiment_badge(sentiment: str) -> str:
     """Return HTML badge markup for a sentiment string."""
     s = str(sentiment).lower() if sentiment else "neutral"
@@ -351,7 +362,7 @@ with tab1:
     ]
     for col, (label, sql, field, fmt) in zip(kpi, kpi_data):
         rows = run_query(sql)
-        val  = rows[0][field] if rows else 0
+        val  = int(rows[0][field]) if rows else 0
         col.metric(label, fmt(val))
 
     st.markdown("---")
@@ -413,9 +424,11 @@ with tab1:
             c = comp_rows[0]
             st.markdown(f"**{safe_str(c.get('name'))}**")
             st.markdown(f"`{safe_str(c.get('sector'))}` · `{safe_str(c.get('industry'))}`")
-            mcap = c.get('market_cap', 0) or 0
+            mcap = safe_num(c.get('market_cap', 0))
             st.markdown(f"Market Cap: **${mcap/1e12:.2f}T**")
-            st.markdown(f"P/E Ratio: **{safe_str(c.get('pe_ratio'))}x** · Div Yield: **{safe_str(c.get('dividend_yield'))}%**")
+            pe   = safe_num(c.get('pe_ratio'))
+            divy = safe_num(c.get('dividend_yield'))
+            st.markdown(f"P/E Ratio: **{pe:.1f}x** · Div Yield: **{divy:.2f}%**")
             desc = safe_str(c.get('description'), "")
             if desc:
                 st.info(desc)
@@ -500,7 +513,7 @@ with tab2:
         if results:
             st.success(f"Found **{len(results)}** semantically relevant documents for: *\"{st.session_state.get('rag_query','')}\"*")
             for i, r in enumerate(results):
-                score = r.get("similarity_score", 0) or 0
+                score = safe_num(r.get("similarity_score", 0))
                 tick  = safe_str(r.get("ticker"), "—")
                 title = safe_str(r.get("title"), "Article")
                 pub   = safe_str(r.get("publisher"), "—")
