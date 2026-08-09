@@ -8,20 +8,24 @@ import sys
 import logging
 from pathlib import Path
 
-# Add project root to sys.path safely (supports both standard python and Databricks IPykernel)
-if "__file__" in globals():
-    project_root = Path(__file__).resolve().parent.parent
-else:
-    project_root = Path.cwd()
+# Add current directory and parent directory to sys.path
+cwd = Path.cwd().resolve()
+for p in [str(cwd), str(cwd.parent), str(cwd.parent.parent)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-
-from src.lakebase import init_db
-from src.spark_pipeline.ingestion import run_bronze_ingestion
-from src.spark_pipeline.transformations import process_silver_gold_and_persist
-from src.spark_pipeline.embeddings import generate_and_store_news_embeddings
+try:
+    from src.lakebase import init_db
+    from src.spark_pipeline.ingestion import run_bronze_ingestion
+    from src.spark_pipeline.transformations import process_silver_gold_and_persist
+    from src.spark_pipeline.embeddings import generate_and_store_news_embeddings
+except ImportError:
+    # Fallback path adjustment if executed inside nested subfolder
+    sys.path.insert(0, os.path.abspath("."))
+    from src.lakebase import init_db
+    from src.spark_pipeline.ingestion import run_bronze_ingestion
+    from src.spark_pipeline.transformations import process_silver_gold_and_persist
+    from src.spark_pipeline.embeddings import generate_and_store_news_embeddings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("DatabricksJobRunner")
