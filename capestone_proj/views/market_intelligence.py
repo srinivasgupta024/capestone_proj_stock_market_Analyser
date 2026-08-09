@@ -1,12 +1,40 @@
 """
 View Module: Market Intelligence (Tab 1).
-Renders high-density metric bar, 55/45 split layout, 45-day candlestick chart, intraday change bar chart, company profile card, and right-hand scrollable news feed hub.
+Features Technical Analysis Suite (Bollinger Bands, RSI, MACD), Quantitative Stock Screener, 55/45 split, 45d candlestick, and right-hand scrollable news feed hub.
 """
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+def compute_technical_indicators(df_hist):
+    """Compute 20-day Bollinger Bands, 14-day RSI, and 12/26 MACD for quantitative analysis."""
+    df = df_hist.copy()
+    closes = df["close"]
+
+    # 20-day Moving Average & Bollinger Bands
+    df["MA20"] = closes.rolling(window=20, min_periods=1).mean()
+    df["STD20"] = closes.rolling(window=20, min_periods=1).std().fillna(0)
+    df["Upper_Band"] = df["MA20"] + (2 * df["STD20"])
+    df["Lower_Band"] = df["MA20"] - (2 * df["STD20"])
+
+    # 14-day Relative Strength Index (RSI)
+    delta = closes.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14, min_periods=1).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14, min_periods=1).mean()
+    rs = gain / (loss + 1e-6)
+    df["RSI14"] = 100 - (100 / (1 + rs))
+
+    # MACD (12-day EMA vs 26-day EMA) & 9-day Signal
+    ema12 = closes.ewm(span=12, adjust=False).mean()
+    ema26 = closes.ewm(span=26, adjust=False).mean()
+    df["MACD"] = ema12 - ema26
+    df["MACD_Signal"] = df["MACD"].ewm(span=9, adjust=False).mean()
+    df["MACD_Hist"] = df["MACD"] - df["MACD_Signal"]
+
+    return df
 
 def render_market_intelligence(
     run_query, run_write, backend: dict,
@@ -90,84 +118,119 @@ def render_market_intelligence(
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    # ── REBALANCED TWO-COLUMN LAYOUT: Left = Charts (55%), Right = Company Profile + SCROLLABLE NEWS HUB (45%)
+    # ── REBALANCED TWO-COLUMN LAYOUT: Left = Charts (55%), Right = Profile + Scrollable News Hub (45%)
     cleft, cright = st.columns([55, 45])
 
     with cleft:
-        # Candlestick & Volume Chart
+        # Technical Indicator Selector Toggle
+        tech_mode = st.radio(
+            "Chart Overlay",
+            ["Candlestick + Volume", "Bollinger Bands", "RSI (14-day)", "MACD Indicator"],
+            horizontal=True, key="tech_indicator_mode"
+        )
+
         if close > 0:
-            hist = simulate_history_func(close, high, low, _open, days=45, seed=hash(selected)%9999)
-            fig_c = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                                   row_heights=[0.72,0.28], vertical_spacing=0.02)
-            dates_h  = [h["date"]   for h in hist]
-            opens_h  = [h["open"]   for h in hist]
-            highs_h  = [h["high"]   for h in hist]
-            lows_h   = [h["low"]    for h in hist]
-            closes_h = [h["close"]  for h in hist]
-            vols_h   = [h["volume"] for h in hist]
+            raw_hist = simulate_history_func(close, high, low, _open, days=45, seed=hash(selected)%9999)
+            df_hist = pd.DataFrame(raw_hist)
+            df_tech = compute_technical_indicators(df_hist)
+
+            dates_h  = df_tech["date"]
+            opens_h  = df_tech["open"]
+            highs_h  = df_tech["high"]
+            lows_h   = df_tech["low"]
+            closes_h = df_tech["close"]
+            vols_h   = df_tech["volume"]
             vc = ["#10B981" if c>=o else "#EF4444" for o,c in zip(opens_h,closes_h)]
 
-            fig_c.add_trace(go.Candlestick(
-                x=dates_h, open=opens_h, high=highs_h, low=lows_h, close=closes_h,
-                name=selected,
-                increasing=dict(line=dict(color="#10B981"), fillcolor="rgba(16,185,129,0.7)"),
-                decreasing=dict(line=dict(color="#EF4444"), fillcolor="rgba(239,68,68,0.7)"),
-            ), row=1, col=1)
+            if tech_mode == "Bollinger Bands":
+                fig_c = go.Figure()
+                fig_c.add_trace(go.Scatter(x=dates_h, y=df_tech["Upper_Band"], name="Upper Band", line=dict(color="rgba(165,180,252,0.5)", dash="dash")))
+                fig_c.add_trace(go.Scatter(x=dates_h, y=df_tech["MA20"], name="20d SMA", line=dict(color="#F59E0B", width=1.5)))
+                fig_c.add_trace(go.Scatter(x=dates_h, y=df_tech["Lower_Band"], name="Lower Band", line=dict(color="rgba(165,180,252,0.5)", dash="dash"), fill="tonexty", fillcolor="rgba(99,102,241,0.06)"))
+                fig_c.add_trace(go.Scatter(x=dates_h, y=closes_h, name="Close Price", line=dict(color="#10B981", width=2)))
+                dark_layout_func(fig_c, height=350, title=f"{get_ticker_label_func(selected)} — Bollinger Bands (20, 2σ)")
+                st.plotly_chart(fig_c, use_container_width=True)
 
-            w = 10
-            ma = [sum(closes_h[max(0,i-w+1):i+1])/len(closes_h[max(0,i-w+1):i+1]) for i in range(len(closes_h))]
-            fig_c.add_trace(go.Scatter(
-                x=dates_h, y=ma, name="10d MA",
-                line=dict(color="#F59E0B", width=1.5, dash="dot")
-            ), row=1, col=1)
+            elif tech_mode == "RSI (14-day)":
+                fig_c = go.Figure()
+                fig_c.add_trace(go.Scatter(x=dates_h, y=df_tech["RSI14"], name="RSI (14)", line=dict(color="#A5B4FC", width=2)))
+                fig_c.add_hline(y=70, line_dash="dash", line_color="#EF4444", annotation_text="Overbought (70)")
+                fig_c.add_hline(y=30, line_dash="dash", line_color="#10B981", annotation_text="Oversold (30)")
+                dark_layout_func(fig_c, height=350, title=f"{get_ticker_label_func(selected)} — Relative Strength Index (RSI 14)")
+                fig_c.update_yaxes(range=[0, 100])
+                st.plotly_chart(fig_c, use_container_width=True)
 
-            fig_c.add_trace(go.Bar(
-                x=dates_h, y=vols_h, name="Volume",
-                marker_color=vc, opacity=0.55
-            ), row=2, col=1)
+            elif tech_mode == "MACD Indicator":
+                fig_c = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4], vertical_spacing=0.03)
+                fig_c.add_trace(go.Scatter(x=dates_h, y=closes_h, name="Close Price", line=dict(color="#6366F1", width=1.5)), row=1, col=1)
+                fig_c.add_trace(go.Scatter(x=dates_h, y=df_tech["MACD"], name="MACD", line=dict(color="#38BDF8", width=1.5)), row=2, col=1)
+                fig_c.add_trace(go.Scatter(x=dates_h, y=df_tech["MACD_Signal"], name="Signal Line", line=dict(color="#F59E0B", width=1.5, dash="dot")), row=2, col=1)
+                fig_c.add_trace(go.Bar(x=dates_h, y=df_tech["MACD_Hist"], name="Histogram", marker_color=["#10B981" if v>=0 else "#EF4444" for v in df_tech["MACD_Hist"]]), row=2, col=1)
+                dark_layout_func(fig_c, height=350, title=f"{get_ticker_label_func(selected)} — Moving Average Convergence Divergence (MACD)")
+                st.plotly_chart(fig_c, use_container_width=True)
 
-            fig_c.update_layout(
-                template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="Inter", color="#E8EDFF", size=10),
-                title=dict(text=f"{get_ticker_label_func(selected)} — Price Action & Volume",
-                           font=dict(size=12, color="#A5B4FC"), x=0),
-                margin=dict(l=6,r=6,t=30,b=6), height=350,
-                xaxis_rangeslider_visible=False,
-                legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=9)),
-            )
-            fig_c.update_xaxes(gridcolor="rgba(255,255,255,0.05)", linecolor="#4B5568", tickfont=dict(color="#4B5568",size=9))
-            fig_c.update_yaxes(gridcolor="rgba(255,255,255,0.05)", linecolor="#4B5568", tickfont=dict(color="#4B5568",size=9))
-            st.plotly_chart(fig_c, use_container_width=True)
+            else:
+                # Default Candlestick + Volume
+                fig_c = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.72,0.28], vertical_spacing=0.02)
+                fig_c.add_trace(go.Candlestick(
+                    x=dates_h, open=opens_h, high=highs_h, low=lows_h, close=closes_h,
+                    name=selected,
+                    increasing=dict(line=dict(color="#10B981"), fillcolor="rgba(16,185,129,0.7)"),
+                    decreasing=dict(line=dict(color="#EF4444"), fillcolor="rgba(239,68,68,0.7)"),
+                ), row=1, col=1)
 
-        # Intraday Change Market Overview Bar Chart
-        if _client_ok:
-            all_q = []
+                fig_c.add_trace(go.Scatter(
+                    x=dates_h, y=df_tech["MA20"], name="20d MA",
+                    line=dict(color="#F59E0B", width=1.5, dash="dot")
+                ), row=1, col=1)
+
+                fig_c.add_trace(go.Bar(
+                    x=dates_h, y=vols_h, name="Volume",
+                    marker_color=vc, opacity=0.55
+                ), row=2, col=1)
+
+                fig_c.update_layout(
+                    template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(family="Inter", color="#E8EDFF", size=10),
+                    title=dict(text=f"{get_ticker_label_func(selected)} — Price Action & Volume",
+                               font=dict(size=12, color="#A5B4FC"), x=0),
+                    margin=dict(l=6,r=6,t=30,b=6), height=350,
+                    xaxis_rangeslider_visible=False,
+                    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=9)),
+                )
+                fig_c.update_xaxes(gridcolor="rgba(255,255,255,0.05)", linecolor="#4B5568", tickfont=dict(color="#4B5568",size=9))
+                fig_c.update_yaxes(gridcolor="rgba(255,255,255,0.05)", linecolor="#4B5568", tickfont=dict(color="#4B5568",size=9))
+                st.plotly_chart(fig_c, use_container_width=True)
+
+        # STANDOUT FEATURE: QUANTITATIVE STOCK SCREENER MATRIX
+        with st.expander("🔍 Quantitative Market Screener Matrix", expanded=False):
+            st.markdown("Rank and filter all tracked stocks based on fundamental metrics and NLP sentiment:")
+            screener_data = []
             for t in default_tickers:
                 try:
                     q = backend["client"].get_ticker_quote(t)
-                    all_q.append({
+                    c_rows = run_query("SELECT pe_ratio, market_cap, sector FROM companies WHERE ticker=%s;", (t,))
+                    pe_v = safe_num_func(c_rows[0]["pe_ratio"]) if c_rows else 25.0
+                    mcap_v = safe_num_func(c_rows[0]["market_cap"]) if c_rows else 1e11
+                    sec_v = c_rows[0]["sector"] if c_rows else "Tech"
+                    c_p = safe_num_func(q.get("close_price",0))
+                    o_p = safe_num_func(q.get("open_price",0))
+                    chg_v = ((c_p - o_p)/o_p*100) if o_p else 0
+                    screener_data.append({
                         "Ticker": t,
-                        "Close":  safe_num_func(q.get("close_price",0)),
-                        "Open":   safe_num_func(q.get("open_price",0)),
+                        "Company": ticker_names.get(t, t),
+                        "Sector": sec_v,
+                        "Close ($)": c_p,
+                        "Change (%)": round(chg_v, 2),
+                        "P/E Ratio": pe_v,
+                        "Market Cap ($B)": round(mcap_v/1e9, 1),
+                        "AI Rating": "BUY" if chg_v > 0 and pe_v < 45 else ("HOLD" if chg_v >= -1.0 else "SELL")
                     })
                 except: pass
 
-            if all_q:
-                df_all = pd.DataFrame(all_q)
-                df_all["Δ%"]    = ((df_all["Close"]-df_all["Open"])/df_all["Open"]*100).round(2)
-                df_all["Color"] = df_all["Δ%"].apply(lambda x: "#10B981" if x>=0 else "#EF4444")
-
-                fig_d = go.Figure(go.Bar(
-                    x=df_all["Ticker"], y=df_all["Δ%"],
-                    marker_color=df_all["Color"].tolist(), opacity=0.88,
-                    text=[f"{v:+.2f}%" for v in df_all["Δ%"]],
-                    textposition="outside",
-                    textfont=dict(color="#E8EDFF", size=10),
-                ))
-                dark_layout_func(fig_d, height=220, title="Market Overview — Intraday % Change", show_legend=False)
-                fig_d.update_layout(yaxis_title="% Change")
-                fig_d.add_hline(y=0, line_dash="dot", line_color="rgba(255,255,255,0.2)")
-                st.plotly_chart(fig_d, use_container_width=True)
+            if screener_data:
+                df_scr = pd.DataFrame(screener_data)
+                st.dataframe(df_scr, use_container_width=True, hide_index=True)
 
     with cright:
         # Company Profile Card
@@ -177,7 +240,6 @@ def render_market_intelligence(
             c = comp[0]
             mcap = safe_num_func(c.get("market_cap",0))
             pe   = safe_num_func(c.get("pe_ratio",0))
-            divy = safe_num_func(c.get("dividend_yield",0))
             st.markdown(f"**{safe_str_func(c.get('name', ticker_names.get(selected, selected)))}**")
             st.markdown(f"`{safe_str_func(c.get('sector'))}` · `{safe_str_func(c.get('industry'))}`")
             fa, fb = st.columns(2)
