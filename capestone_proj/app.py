@@ -87,18 +87,23 @@ def sentiment_badge(s):
     return "<span class='badge-neutral'>NEUTRAL</span>"
 
 def dark_layout(fig, height=300, title="", show_legend=True):
-    fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter", color="#E8EDFF", size=10),
-        title=dict(text=title, font=dict(size=12, color="#A5B4FC"), x=0) if title else None,
-        margin=dict(l=8, r=8, t=32 if title else 8, b=8),
-        height=height, showlegend=show_legend,
-        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(255,255,255,0.07)",
-                    borderwidth=1, font=dict(size=9)),
-    )
-    fig.update_xaxes(gridcolor="rgba(255,255,255,0.05)", linecolor="#4B5568", tickfont=dict(color="#4B5568", size=9))
-    fig.update_yaxes(gridcolor="rgba(255,255,255,0.05)", linecolor="#4B5568", tickfont=dict(color="#4B5568", size=9))
+    if fig is None:
+        return None
+    try:
+        fig.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="Inter", color="#E8EDFF", size=10),
+            title=dict(text=title, font=dict(size=12, color="#A5B4FC"), x=0) if title else None,
+            margin=dict(l=8, r=8, t=32 if title else 8, b=8),
+            height=height, showlegend=show_legend,
+            legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(255,255,255,0.07)",
+                        borderwidth=1, font=dict(size=9)),
+        )
+        fig.update_xaxes(gridcolor="rgba(255,255,255,0.05)", linecolor="#4B5568", tickfont=dict(color="#4B5568", size=9))
+        fig.update_yaxes(gridcolor="rgba(255,255,255,0.05)", linecolor="#4B5568", tickfont=dict(color="#4B5568", size=9))
+    except Exception as e:
+        logger.warning(f"Plotly layout notice: {e}")
     return fig
 
 def simulate_history(close, high, low, _open, days=45, seed=42):
@@ -161,9 +166,14 @@ def init_pipeline():
     except Exception as e:
         return {"ok": False, "message": str(e)}
 
-backend = load_backend()
+# Display visual progress loading spinner during first load
 if "pipeline_init" not in st.session_state:
-    st.session_state["pipeline_init"] = init_pipeline()
+    with st.spinner("🚀 Initializing LakePulse AI Engine, PySpark Delta Pipeline & Vector Index..."):
+        backend = load_backend()
+        st.session_state["pipeline_init"] = init_pipeline()
+else:
+    backend = load_backend()
+
 
 def run_query(sql, params=None):
     if not backend.get("db_ok", False): return []

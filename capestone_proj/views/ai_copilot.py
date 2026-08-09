@@ -47,6 +47,9 @@ def render_ai_copilot(backend: dict, session_id: str, safe_str_func):
         if qc[3].button("📋 My Watchlist",    use_container_width=True): qp="Show my current portfolio watchlist"
         if qc[4].button("📈 NVDA Snapshot",   use_container_width=True): qp="What is the current NVDA stock price and fundamentals?"
 
+        if qp:
+            st.session_state["pending_prompt"] = qp
+
         st.markdown("---")
 
         chat_box = st.container(height=450)
@@ -71,10 +74,12 @@ def render_ai_copilot(backend: dict, session_id: str, safe_str_func):
                     for act in msg.get("actions", []):
                         st.markdown(f"<span class='badge-action'>⚡ {act}</span>", unsafe_allow_html=True)
 
-        user_input = st.chat_input(
+        chat_val = st.chat_input(
             f"Ask AI Copilot… [Session {session_id}]",
             key="agent_chat_input"
-        ) or qp
+        )
+        
+        user_input = chat_val or st.session_state.pop("pending_prompt", None)
 
         if user_input:
             ts_now = datetime.now().strftime("%H:%M")
@@ -84,25 +89,26 @@ def render_ai_copilot(backend: dict, session_id: str, safe_str_func):
                 "actions": [],
                 "ts": ts_now,
             })
-            st.markdown("<div class='custom-loader-badge'>🤖 AI Copilot executing ReAct tools...</div>", unsafe_allow_html=True)
-            try:
-                resp    = backend["agent"].run(user_input)
-                answer  = safe_str_func(resp.get("answer",""), "No response.")
-                actions = resp.get("actions_taken", [])
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer,
-                    "actions": actions,
-                    "ts": datetime.now().strftime("%H:%M"),
-                })
-            except Exception as e:
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": f"⚠️ Agent error: {e}",
-                    "actions": [],
-                    "ts": datetime.now().strftime("%H:%M"),
-                })
+            with st.spinner("🤖 AI Copilot executing Chain-of-Thought reasoning & ReAct tools..."):
+                try:
+                    resp    = backend["agent"].run(user_input)
+                    answer  = safe_str_func(resp.get("answer",""), "No response.")
+                    actions = resp.get("actions_taken", [])
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": answer,
+                        "actions": actions,
+                        "ts": datetime.now().strftime("%H:%M"),
+                    })
+                except Exception as e:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": f"⚠️ Agent error: {e}",
+                        "actions": [],
+                        "ts": datetime.now().strftime("%H:%M"),
+                    })
             st.rerun()
+
 
         st.markdown("---")
         with st.expander("🛠️ Available Agent Tools"):
