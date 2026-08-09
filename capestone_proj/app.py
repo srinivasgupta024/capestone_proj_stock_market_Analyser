@@ -1,519 +1,817 @@
 """
-AI Stock Market Research Assistant & Investment Copilot — Databricks App Entrypoint.
-Full-stack Streamlit application featuring Databricks Lakebase (PostgreSQL + pgvector),
-PySpark Medallion ETL Pipeline, Unstructured Vector RAG, and Tool-Calling AI ReAct Agent.
+LakePulse AI — Stock Market Research Assistant & Investment Copilot
+Databricks Apps Entrypoint | Streamlit Frontend
+Features:
+  - Market Intelligence & Plotly Analytics
+  - Unstructured Vector RAG (pgvector)
+  - Portfolio Watchlist (Lakebase CRUD)
+  - AI ReAct Agent Copilot
+  - Pipeline & System Telemetry
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime, timezone
+import plotly.express as px
+from datetime import datetime
 import logging
 
-# -----------------------------------------------------------------------------
-# 1. PAGE CONFIGURATION & CUSTOM CSS DESIGN SYSTEM
-# -----------------------------------------------------------------------------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="LakePulse AI | Stock Market Copilot & Databricks Lakebase",
+    page_title="LakePulse AI | Stock Market Copilot",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-# Premium Dark Glassmorphism CSS Design System
+# ─── DESIGN SYSTEM CSS ────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-    }
-    
-    .main {
-        background-color: #0B0E14;
-        color: #F0F4F8;
-    }
-    
-    /* Metric Cards */
-    [data-testid="stMetric"] {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 14px;
-        padding: 18px 20px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-    [data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        border-color: rgba(0, 210, 106, 0.4);
-    }
-    
-    /* Badges & Tags */
-    .badge-action {
-        background: linear-gradient(135deg, #00D26A 0%, #00A855 100%);
-        color: #000000;
-        font-weight: 700;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.80rem;
-        letter-spacing: 0.5px;
-        display: inline-block;
-        margin-bottom: 6px;
-    }
-    
-    .badge-bullish {
-        background-color: rgba(0, 210, 106, 0.15);
-        color: #00D26A;
-        border: 1px solid rgba(0, 210, 106, 0.4);
-        font-weight: 600;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 0.80rem;
-    }
-    
-    .badge-bearish {
-        background-color: rgba(255, 77, 79, 0.15);
-        color: #FF4D4F;
-        border: 1px solid rgba(255, 77, 79, 0.4);
-        font-weight: 600;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 0.80rem;
-    }
-    
-    .badge-neutral {
-        background-color: rgba(255, 180, 0, 0.15);
-        color: #FFB400;
-        border: 1px solid rgba(255, 180, 0, 0.4);
-        font-weight: 600;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-size: 0.80rem;
-    }
-    
-    .badge-rag {
-        background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
-        color: #FFFFFF;
-        font-weight: 600;
-        padding: 4px 10px;
-        border-radius: 8px;
-        font-size: 0.80rem;
-    }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-    /* Container Glass Cards */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.07);
-        border-radius: 16px;
-        padding: 24px;
-        margin-bottom: 20px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Primary Buttons */
-    .stButton>button {
-        border-radius: 10px;
-        font-weight: 600;
-        transition: all 0.2s ease;
-    }
-    
-    /* Tabs Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px 8px 0 0;
-        padding: 10px 18px;
-        font-weight: 600;
-    }
+  html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
+
+  /* Global background */
+  .stApp { background: #0C0E16; }
+  section[data-testid="stSidebar"] { background: #111420 !important; border-right: 1px solid rgba(255,255,255,0.06); }
+
+  /* Sidebar logo area */
+  .sidebar-brand { padding: 0 0 16px 0; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+
+  /* Metric Cards */
+  [data-testid="stMetric"] {
+    background: linear-gradient(135deg,rgba(30,35,60,0.9) 0%,rgba(16,20,40,0.9) 100%);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 14px;
+    padding: 18px 22px !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  [data-testid="stMetric"]:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(99,102,241,0.25);
+    border-color: rgba(99,102,241,0.5);
+  }
+  [data-testid="stMetricLabel"] { font-size: 0.78rem !important; color: #8892A4 !important; letter-spacing: 0.04em; text-transform: uppercase; }
+  [data-testid="stMetricValue"] { font-size: 1.7rem !important; font-weight: 700 !important; color: #E8EDFF !important; }
+
+  /* Tabs */
+  .stTabs [data-baseweb="tab-list"] {
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .stTabs [data-baseweb="tab"] {
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-weight: 600;
+    font-size: 0.86rem;
+    color: #8892A4;
+    background: transparent !important;
+    border: none !important;
+  }
+  .stTabs [aria-selected="true"] {
+    background: rgba(99,102,241,0.18) !important;
+    color: #A5B4FC !important;
+  }
+
+  /* Buttons */
+  .stButton > button {
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.87rem;
+    padding: 9px 18px;
+    border: 1px solid rgba(99,102,241,0.4);
+    background: rgba(99,102,241,0.12);
+    color: #A5B4FC;
+    transition: all 0.18s ease;
+  }
+  .stButton > button:hover {
+    background: rgba(99,102,241,0.28);
+    border-color: rgba(99,102,241,0.7);
+    transform: translateY(-1px);
+  }
+  .stButton > button[kind="primary"] {
+    background: linear-gradient(135deg,#6366F1 0%,#4F46E5 100%);
+    color: #fff;
+    border: none;
+  }
+
+  /* Inputs */
+  .stTextInput input, .stSelectbox div, .stNumberInput input, .stTextArea textarea {
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 10px !important;
+    color: #E8EDFF !important;
+  }
+  .stSlider { padding: 4px 0; }
+
+  /* Chat bubbles */
+  [data-testid="stChatMessage"] {
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
+    border-radius: 14px !important;
+    margin-bottom: 10px;
+  }
+
+  /* Custom badges */
+  .badge-bullish { background:rgba(16,185,129,0.15); color:#34D399; border:1px solid rgba(16,185,129,0.35); padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+  .badge-bearish { background:rgba(239,68,68,0.15);  color:#F87171; border:1px solid rgba(239,68,68,0.35);  padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+  .badge-neutral { background:rgba(245,158,11,0.15); color:#FCD34D; border:1px solid rgba(245,158,11,0.35); padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+  .badge-action  { background:rgba(99,102,241,0.18); color:#A5B4FC; border:1px solid rgba(99,102,241,0.4); padding:3px 12px; border-radius:20px; font-size:0.80rem; font-weight:700; display:inline-block; margin:4px 0; }
+  .badge-rag     { background:rgba(14,165,233,0.15); color:#38BDF8; border:1px solid rgba(14,165,233,0.35); padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; }
+
+  /* Section headers */
+  .section-header { font-size:1.12rem; font-weight:700; color:#E8EDFF; margin-bottom:4px; }
+  .section-sub { font-size:0.82rem; color:#8892A4; margin-bottom:16px; }
+
+  /* News card */
+  .news-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    transition: border-color 0.18s;
+  }
+  .news-card:hover { border-color: rgba(99,102,241,0.3); }
+  .news-title { font-size: 0.93rem; font-weight: 600; color: #E8EDFF; }
+  .news-meta  { font-size: 0.78rem; color: #8892A4; margin-top: 4px; }
+
+  /* Tool panel */
+  .tool-row { padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border-left: 3px solid rgba(99,102,241,0.5); margin-bottom: 8px; font-size: 0.84rem; }
+
+  /* Expander */
+  .streamlit-expanderHeader { font-weight: 600; }
+
+  /* Divider */
+  hr { border-color: rgba(255,255,255,0.07) !important; margin: 24px 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# 2. APPLICATION IMPORTS & INITIALIZATION
-# -----------------------------------------------------------------------------
-from src.lakebase import init_db, run_query, run_write
-from src.spark_pipeline.ingestion import run_bronze_ingestion
-from src.spark_pipeline.transformations import process_silver_gold_and_persist
-from src.spark_pipeline.embeddings import generate_and_store_news_embeddings
-from src.rag.vector_search import search_news_vector
-from src.agent.agent_engine import StockMarketAgent
-from src.massive_client import MassiveClient
+# ─── HELPER FUNCTIONS ─────────────────────────────────────────────────────────
 
-@st.cache_resource
-def setup_application():
+def fmt_date(val):
+    """Safely format any date/datetime value to YYYY-MM-DD string."""
+    if val is None:
+        return "N/A"
+    if isinstance(val, datetime):
+        return val.strftime("%Y-%m-%d")
     try:
+        return str(val)[:10]
+    except Exception:
+        return str(val)
+
+def safe_str(val, fallback="N/A"):
+    """Safely convert a value to string, returning fallback if None."""
+    if val is None:
+        return fallback
+    return str(val)
+
+def sentiment_badge(sentiment: str) -> str:
+    """Return HTML badge markup for a sentiment string."""
+    s = str(sentiment).lower() if sentiment else "neutral"
+    if "bull" in s:
+        return "<span class='badge-bullish'>BULLISH</span>"
+    elif "bear" in s:
+        return "<span class='badge-bearish'>BEARISH</span>"
+    else:
+        return "<span class='badge-neutral'>NEUTRAL</span>"
+
+def sentiment_emoji(sentiment: str) -> str:
+    s = str(sentiment).lower() if sentiment else ""
+    if "bull" in s: return "🟢"
+    if "bear" in s: return "🔴"
+    return "🟡"
+
+# ─── APP IMPORTS (guarded to show useful errors, not crash) ───────────────────
+@st.cache_resource(show_spinner=False)
+def load_backend():
+    """Load all backend modules once and cache. Returns a dict of callables or errors."""
+    modules = {}
+    try:
+        from src.lakebase import init_db, run_query, run_write
+        modules["run_query"] = run_query
+        modules["run_write"] = run_write
+        modules["init_db"]   = init_db
+        modules["db_ok"]     = True
+    except Exception as e:
+        modules["db_ok"]    = False
+        modules["db_error"] = str(e)
+
+    try:
+        from src.massive_client import MassiveClient
+        modules["client"]    = MassiveClient()
+        modules["client_ok"] = True
+    except Exception as e:
+        modules["client_ok"]    = False
+        modules["client_error"] = str(e)
+
+    try:
+        from src.rag.vector_search import search_news_vector
+        modules["search_news_vector"] = search_news_vector
+        modules["rag_ok"]             = True
+    except Exception as e:
+        modules["rag_ok"]    = False
+        modules["rag_error"] = str(e)
+
+    try:
+        from src.agent.agent_engine import StockMarketAgent
+        modules["agent"]    = StockMarketAgent()
+        modules["agent_ok"] = True
+    except Exception as e:
+        modules["agent_ok"]    = False
+        modules["agent_error"] = str(e)
+
+    return modules
+
+
+@st.cache_resource(show_spinner=False)
+def init_pipeline():
+    """Run DB init + data pipeline once on cold start (cached)."""
+    try:
+        from src.lakebase import init_db
+        from src.spark_pipeline.ingestion import run_bronze_ingestion
+        from src.spark_pipeline.transformations import process_silver_gold_and_persist
+        from src.spark_pipeline.embeddings import generate_and_store_news_embeddings
         init_db()
         prices, news = run_bronze_ingestion(["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "TSLA"])
         process_silver_gold_and_persist(prices, news)
         generate_and_store_news_embeddings()
+        return {"ok": True, "message": "Pipeline initialised successfully"}
     except Exception as e:
-        logging.warning(f"Startup initialization note: {e}")
+        return {"ok": False, "message": str(e)}
 
-setup_application()
 
-agent = StockMarketAgent()
-client = MassiveClient()
+# ─── LOAD EVERYTHING ──────────────────────────────────────────────────────────
+backend = load_backend()
 
-# -----------------------------------------------------------------------------
-# 3. HEADER & SIDEBAR NAVIGATION
-# -----------------------------------------------------------------------------
-title_col, logo_col = st.columns([4, 1])
-with title_col:
-    st.title("📈 LakePulse AI — Stock Market Assistant")
-    st.caption("Enterprise Financial Intelligence powered by Databricks Apps, Lakebase (pgvector), PySpark Medallion ETL, & ReAct AI Agent")
+# Run pipeline in background (non-blocking for UI)
+if "pipeline_init" not in st.session_state:
+    with st.spinner("🚀 Initialising LakePulse AI pipeline... (first-time only)"):
+        result = init_pipeline()
+    st.session_state["pipeline_init"] = result
 
+# Convenience aliases
+_db_ok      = backend.get("db_ok", False)
+_client_ok  = backend.get("client_ok", False)
+_rag_ok     = backend.get("rag_ok", False)
+_agent_ok   = backend.get("agent_ok", False)
+
+def run_query(sql, params=None):
+    if not _db_ok:
+        return []
+    try:
+        return backend["run_query"](sql, params)
+    except Exception as e:
+        logger.warning(f"run_query error: {e}")
+        return []
+
+def run_write(sql, params=None):
+    if not _db_ok:
+        return 0
+    try:
+        return backend["run_write"](sql, params)
+    except Exception as e:
+        logger.warning(f"run_write error: {e}")
+        return 0
+
+# ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/6/63/Databricks_Logo.png", width=170)
-    st.markdown("### System Telemetry")
-    st.success("🟢 Databricks Lakebase: Online")
-    st.info("⚡ Spark Medallion ETL: Active")
-    st.warning("🔍 pgvector RAG Index: 384-dim")
+    st.markdown('<div class="sidebar-brand">', unsafe_allow_html=True)
+    try:
+        st.image("https://upload.wikimedia.org/wikipedia/commons/6/63/Databricks_Logo.png", width=160)
+    except Exception:
+        st.markdown("### 🔥 Databricks")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("### System Status")
+    st.markdown(f"{'🟢' if _db_ok else '🔴'} **Lakebase (pgvector):** {'Online' if _db_ok else 'Error'}")
+    st.markdown(f"{'🟢' if _client_ok else '🟡'} **Market Data Client:** {'Active' if _client_ok else 'Fallback Mode'}")
+    st.markdown(f"{'🟢' if _rag_ok else '🔴'} **Vector RAG Engine:** {'384-dim HNSW' if _rag_ok else 'Unavailable'}")
+    st.markdown(f"{'🟢' if _agent_ok else '🔴'} **AI ReAct Agent:** {'Online' if _agent_ok else 'Unavailable'}")
+
+    if not backend.get("pipeline_init", {}).get("ok", True):
+        st.warning(f"⚠️ Pipeline: {st.session_state.get('pipeline_init', {}).get('message', '')[:80]}")
 
     st.markdown("---")
-    st.markdown("### Data Pipeline Controls")
-    if st.button("🔄 Trigger PySpark ETL & RAG Pipeline", use_container_width=True):
-        with st.spinner("Running PySpark Bronze → Silver → Gold ETL and chunk embeddings..."):
-            prices, news = run_bronze_ingestion(["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "TSLA"])
-            process_silver_gold_and_persist(prices, news)
-            count = generate_and_store_news_embeddings()
-            st.success(f"ETL Complete! Embedded {count} news articles into Lakebase.")
+    st.markdown("### Data Pipeline")
+    if st.button("🔄 Refresh ETL & RAG Pipeline", use_container_width=True):
+        with st.spinner("Running PySpark Bronze → Silver → Gold ETL..."):
+            try:
+                from src.spark_pipeline.ingestion import run_bronze_ingestion
+                from src.spark_pipeline.transformations import process_silver_gold_and_persist
+                from src.spark_pipeline.embeddings import generate_and_store_news_embeddings
+                prices, news = run_bronze_ingestion(["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "TSLA"])
+                process_silver_gold_and_persist(prices, news)
+                count = generate_and_store_news_embeddings()
+                st.success(f"✅ ETL complete — {count} embeddings refreshed")
+                # Clear pipeline cache so it re-runs
+                init_pipeline.clear()
+            except Exception as e:
+                st.error(f"Pipeline error: {e}")
 
     st.markdown("---")
-    st.caption("© 2026 Databricks Capstone Project | Built with Streamlit & Lakebase")
+    st.caption("© 2026 LakePulse AI — Databricks Capstone\nBuilt with Streamlit + Lakebase pgvector")
 
-# -----------------------------------------------------------------------------
-# 4. TABBED LAYOUT NAVIGATION (5 COMPREHENSIVE TABS)
-# -----------------------------------------------------------------------------
+# ─── PAGE HEADER ──────────────────────────────────────────────────────────────
+col_h1, col_h2 = st.columns([3, 1])
+with col_h1:
+    st.title("📈 LakePulse AI")
+    st.caption("Enterprise-grade financial intelligence — Databricks Lakebase · PySpark Medallion ETL · pgvector RAG · ReAct AI Agent")
+
+# ─── TABS ─────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Market Intelligence", 
-    "🔍 Unstructured Vector RAG", 
-    "⭐ Portfolio Watchlist", 
+    "📊 Market Intelligence",
+    "🔍 Vector RAG Search",
+    "⭐ Portfolio Watchlist",
     "🤖 AI Agent Copilot",
-    "⚡ System & Pipeline Health"
+    "⚡ System Health",
 ])
 
-# =============================================================================
-# TAB 1: MARKET INTELLIGENCE & FINANCIAL ANALYTICS
-# =============================================================================
+TICKERS = ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA"]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 — MARKET INTELLIGENCE
+# ══════════════════════════════════════════════════════════════════════════════
 with tab1:
-    st.markdown("### 📊 Market Summary & Financial Analytics")
-    
-    # KPI Grid
-    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
-    with kpi1:
-        comp_count = run_query("SELECT COUNT(*) AS c FROM companies;")[0]["c"]
-        st.metric("Tracked Tickers", f"{comp_count} Stocks")
-    with kpi2:
-        watch_count = run_query("SELECT COUNT(*) AS c FROM watchlist_tickers;")[0]["c"]
-        st.metric("Portfolio Items", f"{watch_count} Saved")
-    with kpi3:
-        news_count = run_query("SELECT COUNT(*) AS c FROM news_articles;")[0]["c"]
-        st.metric("News Articles", f"{news_count} Indexed")
-    with kpi4:
-        emb_count = run_query("SELECT COUNT(*) AS c FROM news_embeddings;")[0]["c"]
-        st.metric("Vector Embeddings", f"{emb_count} Chunks")
-    with kpi5:
-        avg_pe = run_query("SELECT AVG(pe_ratio) AS pe FROM companies;")[0]["pe"]
-        st.metric("Average Sector P/E", f"{avg_pe:.1f}x" if avg_pe else "34.2x")
+    # KPI row
+    kpi = st.columns(5)
+    kpi_data = [
+        ("Tracked Tickers",   "SELECT COUNT(*) AS c FROM companies",          "c", lambda v: f"{v}"),
+        ("Portfolio Items",   "SELECT COUNT(*) AS c FROM watchlist_tickers",  "c", lambda v: f"{v}"),
+        ("News Articles",     "SELECT COUNT(*) AS c FROM news_articles",      "c", lambda v: f"{v}"),
+        ("Vector Embeddings", "SELECT COUNT(*) AS c FROM news_embeddings",    "c", lambda v: f"{v}"),
+        ("Price Snapshots",   "SELECT COUNT(*) AS c FROM price_snapshots",    "c", lambda v: f"{v}"),
+    ]
+    for col, (label, sql, field, fmt) in zip(kpi, kpi_data):
+        rows = run_query(sql)
+        val  = rows[0][field] if rows else 0
+        col.metric(label, fmt(val))
 
     st.markdown("---")
-    
-    # Interactive Ticker Analysis
-    selected_ticker = st.selectbox("Select Ticker Symbol to Inspect", ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA"], index=0)
-    quote = client.get_ticker_quote(selected_ticker)
-    
-    chart_col, info_col = st.columns([2, 1])
-    
+
+    # Ticker selector + live quote
+    sel_col, spacer = st.columns([1, 3])
+    with sel_col:
+        selected = st.selectbox("Select Ticker", TICKERS, index=0, label_visibility="collapsed",
+                                help="Pick a stock to inspect")
+    st.markdown(f"### {selected} — Daily Market Snapshot")
+
+    # Fetch quote
+    quote = {}
+    if _client_ok:
+        try:
+            quote = backend["client"].get_ticker_quote(selected)
+        except Exception as e:
+            st.error(f"Could not load quote: {e}")
+
+    if quote:
+        q1, q2, q3, q4 = st.columns(4)
+        q1.metric("Close Price", f"${quote.get('close_price', 0):.2f}")
+        q2.metric("Open Price",  f"${quote.get('open_price', 0):.2f}")
+        q3.metric("Day High",    f"${quote.get('high_price', 0):.2f}")
+        q4.metric("Day Low",     f"${quote.get('low_price', 0):.2f}")
+
+    chart_col, info_col = st.columns([3, 2])
+
     with chart_col:
-        st.markdown(f"#### {selected_ticker} Market Price Action ($)")
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=["Open", "Low", "Close", "High"],
-            y=[quote["open_price"], quote["low_price"], quote["close_price"], quote["high_price"]],
-            marker_color=["#3B82F6", "#EF4444", "#10B981", "#F59E0B"],
-            text=[f"${quote['open_price']:.2f}", f"${quote['low_price']:.2f}", f"${quote['close_price']:.2f}", f"${quote['high_price']:.2f}"],
-            textposition="auto"
-        ))
-        fig.update_layout(
-            template="plotly_dark",
-            title=f"{selected_ticker} Daily Price Range & Snapshot Metrics",
-            yaxis_title="Stock Price ($)",
-            height=360,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        if quote:
+            labels  = ["Open", "Low", "Close", "High"]
+            values  = [quote.get("open_price",0), quote.get("low_price",0),
+                       quote.get("close_price",0), quote.get("high_price",0)]
+            colors  = ["#6366F1", "#EF4444", "#10B981", "#F59E0B"]
+
+            fig = go.Figure(go.Bar(
+                x=labels, y=values,
+                marker=dict(color=colors, line=dict(width=0)),
+                text=[f"${v:.2f}" for v in values],
+                textposition="outside",
+                textfont=dict(color="#E8EDFF", size=12),
+            ))
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(gridcolor="rgba(255,255,255,0.05)", title="Price ($)"),
+                xaxis=dict(gridcolor="rgba(0,0,0,0)"),
+                margin=dict(l=10, r=10, t=20, b=10),
+                height=280,
+                showlegend=False,
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
     with info_col:
-        st.markdown(f"#### {selected_ticker} Company Fundamentals")
-        company_data = run_query("SELECT * FROM companies WHERE ticker = %s;", (selected_ticker,))
-        if company_data:
-            c = company_data[0]
-            st.markdown(f"**Company Name:** `{c.get('name')}`")
-            st.markdown(f"**Sector:** `{c.get('sector')}` | **Industry:** `{c.get('industry')}`")
-            st.markdown(f"**Market Cap:** `${c.get('market_cap', 0):,}`")
-            st.markdown(f"**P/E Ratio:** `{c.get('pe_ratio')}` | **Dividend Yield:** `{c.get('dividend_yield')}%`")
-            st.info(f"**Business Profile:** {c.get('description')}")
+        st.markdown("#### Company Fundamentals")
+        comp_rows = run_query("SELECT * FROM companies WHERE ticker = %s;", (selected,))
+        if comp_rows:
+            c = comp_rows[0]
+            st.markdown(f"**{safe_str(c.get('name'))}**")
+            st.markdown(f"`{safe_str(c.get('sector'))}` · `{safe_str(c.get('industry'))}`")
+            mcap = c.get('market_cap', 0) or 0
+            st.markdown(f"Market Cap: **${mcap/1e12:.2f}T**")
+            st.markdown(f"P/E Ratio: **{safe_str(c.get('pe_ratio'))}x** · Div Yield: **{safe_str(c.get('dividend_yield'))}%**")
+            desc = safe_str(c.get('description'), "")
+            if desc:
+                st.info(desc)
         else:
-            st.write("Loading company metadata...")
+            st.caption("Company data loading...")
 
+    # News feed
     st.markdown("---")
-    st.markdown("#### 📰 Latest Market News Feed")
-    news_rows = run_query("SELECT ticker, title, publisher, published_utc, sentiment, article_url FROM news_articles WHERE ticker = %s ORDER BY published_utc DESC LIMIT 4;", (selected_ticker,))
+    st.markdown("#### 📰 Latest News")
+    news_rows = run_query(
+        "SELECT ticker, title, publisher, published_utc, sentiment, article_url "
+        "FROM news_articles WHERE ticker = %s ORDER BY published_utc DESC LIMIT 5;",
+        (selected,)
+    )
     if news_rows:
         for n in news_rows:
-            sent = n.get("sentiment", "neutral").lower()
-            badge_class = "badge-bullish" if "bull" in sent else ("badge-bearish" if "bear" in sent else "badge-neutral")
+            badge = sentiment_badge(n.get("sentiment"))
+            date  = fmt_date(n.get("published_utc"))
+            url   = safe_str(n.get("article_url"), "#")
+            title = safe_str(n.get("title"), "Market Update")
+            pub   = safe_str(n.get("publisher"), "—")
             st.markdown(
-                f"<div class='glass-card'>"
-                f"<div><span class='{badge_class}'>{sent.upper()}</span> <strong>[{n['ticker']}] {n['title']}</strong></div>"
-                f"<div style='color: #8A99AD; font-size: 0.85rem; margin-top: 6px;'>"
-                f"Publisher: {n.get('publisher')} | Date: {n.get('published_utc')[:10]} | <a href='{n.get('article_url')}' target='_blank' style='color: #3B82F6;'>Read Article ↗</a>"
-                f"</div></div>",
+                f"<div class='news-card'>"
+                f"<div class='news-title'>{badge}&nbsp; {title}</div>"
+                f"<div class='news-meta'>{pub} · {date} &nbsp;·&nbsp; "
+                f"<a href='{url}' target='_blank' style='color:#6366F1;'>Read ↗</a></div>"
+                f"</div>",
                 unsafe_allow_html=True
             )
+    else:
+        st.info("No news articles indexed for this ticker yet. Click **Refresh ETL** in the sidebar.")
 
-# =============================================================================
-# TAB 2: UNSTRUCTURED VECTOR RAG EXPLORER
-# =============================================================================
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 — VECTOR RAG SEARCH
+# ══════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown("### 🔍 Unstructured Data Vector RAG Explorer")
-    st.caption("Perform semantic search across news, earnings, and financial reports powered by `pgvector` HNSW cosine similarity (`<=>`).")
+    st.markdown("### 🔍 Semantic Vector RAG Explorer")
+    st.caption("Powered by `all-MiniLM-L6-v2` → 384-dim embeddings stored in Lakebase pgvector HNSW index.")
 
-    col_q, col_filter, col_topk = st.columns([3, 1, 1])
+    # Quick-query chips
+    CHIPS = {
+        "☁️ AI Cloud Expansion":  "companies expanding AI data center infrastructure and high cloud compute demand",
+        "🚀 Earnings Beat":       "record quarterly revenue beat and expanding profit margins",
+        "📉 Rate Sensitivity":    "Federal Reserve interest rate outlook and supply chain risk analysis",
+        "🚗 EV & Autonomy":       "electric vehicles self-driving autonomous AI hardware deployment",
+    }
+
+    chip_cols = st.columns(len(CHIPS))
+    preset_query = None
+    for col, (label, qtext) in zip(chip_cols, CHIPS.items()):
+        if col.button(label, use_container_width=True):
+            preset_query = qtext
+
+    col_q, col_f, col_k = st.columns([4, 1, 1])
     with col_q:
-        search_query = st.text_input("Enter Semantic Vector Query", "companies expanding AI data center infrastructure and high cloud compute demand", key="rag_search_input")
-    with col_filter:
-        filter_ticker = st.selectbox("Ticker Filter", ["All Tickers", "AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "TSLA"])
-    with col_topk:
-        top_k_val = st.slider("Top K Matches", min_value=1, max_value=10, value=5)
+        search_query = st.text_input(
+            "Semantic query", 
+            value=preset_query or "AI infrastructure data center high compute enterprise demand",
+            key="rag_q"
+        )
+    with col_f:
+        filter_ticker = st.selectbox("Ticker filter", ["All"] + TICKERS, key="rag_tick")
+    with col_k:
+        top_k = st.slider("Top K", 1, 10, 5, key="rag_k")
 
-    ticker_param = None if filter_ticker == "All Tickers" else filter_ticker
+    ticker_param = None if filter_ticker == "All" else filter_ticker
 
-    # Quick Query Prompt Chips
-    st.markdown("**💡 Sample Semantic Queries:**")
-    chip_cols = st.columns(4)
-    if chip_cols[0].button("☁️ AI Cloud Expansion"):
-        search_query = "cloud data center expansion and high artificial intelligence demand"
-    if chip_cols[1].button("🚀 Q2 Revenue Beat"):
-        search_query = "record quarterly revenue beat and expanding profit margins"
-    if chip_cols[2].button("📉 Fed Rate Sensitivity"):
-        search_query = "Federal Reserve interest rate outlook and supply chain risk"
-    if chip_cols[3].button("🚗 EV Autonomous Driving"):
-        search_query = "electric vehicles self-driving autonomous AI hardware"
+    if not _rag_ok:
+        st.error(f"⚠️ RAG engine unavailable: {backend.get('rag_error', 'Unknown error')}")
+    else:
+        if st.button("🔍 Run Semantic Search", use_container_width=True, type="primary"):
+            with st.spinner("Computing query vector & searching pgvector index..."):
+                try:
+                    results = backend["search_news_vector"](search_query, ticker=ticker_param, top_k=top_k)
+                    st.session_state["rag_results"] = results
+                    st.session_state["rag_query"]   = search_query
+                except Exception as e:
+                    st.error(f"Vector search failed: {e}")
+                    st.session_state["rag_results"] = []
 
-    st.markdown("---")
+        results = st.session_state.get("rag_results", [])
+        if results:
+            st.success(f"Found **{len(results)}** semantically relevant documents for: *\"{st.session_state.get('rag_query','')}\"*")
+            for i, r in enumerate(results):
+                score = r.get("similarity_score", 0) or 0
+                tick  = safe_str(r.get("ticker"), "—")
+                title = safe_str(r.get("title"), "Article")
+                pub   = safe_str(r.get("publisher"), "—")
+                sent  = safe_str(r.get("sentiment"), "neutral")
+                chunk = safe_str(r.get("chunk_text"), "")
+                url   = safe_str(r.get("article_url"), "#")
+                date  = fmt_date(r.get("published_utc"))
+                badge = sentiment_badge(sent)
 
-    if st.button("🔍 Execute Semantic Vector Search", use_container_width=True):
-        with st.spinner("Computing 384-dim query vector and querying Lakebase pgvector index..."):
-            rag_results = search_news_vector(search_query, ticker=ticker_param, top_k=top_k_val)
-            
-            if rag_results:
-                st.success(f"Retrieved {len(rag_results)} semantically relevant document chunks from pgvector index:")
-                for idx, r in enumerate(rag_results):
-                    score = r.get("similarity_score", 0)
-                    sent = r.get("sentiment", "neutral").lower()
-                    badge_class = "badge-bullish" if "bull" in sent else ("badge-bearish" if "bear" in sent else "badge-neutral")
-                    
-                    with st.expander(f"Match #{idx+1} [{r.get('ticker')}] {r.get('title')} — Relevance Score: {score:.4f}"):
-                        st.markdown(f"<span class='{badge_class}'>Sentiment: {sent.upper()}</span> <span class='badge-rag'>pgvector Cosine Distance</span>", unsafe_allow_html=True)
-                        st.markdown(f"**Publisher:** {r.get('publisher')} | **Date:** {r.get('published_utc')}")
-                        st.markdown(f"**Retrieved Text Snippet:**")
-                        st.info(r.get("chunk_text"))
-                        if r.get("article_url"):
-                            st.markdown(f"[🔗 View Original Article Source]({r.get('article_url')})")
-            else:
-                st.warning("No semantically matching documents found.")
+                bar_pct = int(score * 100)
+                with st.expander(f"#{i+1}  [{tick}] {title[:80]}...   — {score:.3f} relevance"):
+                    c1, c2 = st.columns([1, 5])
+                    c1.markdown(f"**{score:.3f}**\n\n<small>relevance</small>", unsafe_allow_html=True)
+                    c2.progress(min(bar_pct, 100))
+                    st.markdown(
+                        f"{badge} <span class='badge-rag'>pgvector cosine</span> &nbsp; **{pub}** · {date}",
+                        unsafe_allow_html=True
+                    )
+                    if chunk:
+                        st.markdown(f"> {chunk[:400]}{'...' if len(chunk)>400 else ''}")
+                    if url != "#":
+                        st.markdown(f"[🔗 Read full article]({url})")
+        elif "rag_results" in st.session_state:
+            st.warning("No matching documents found. Try a different query or click **Refresh ETL** to re-embed news.")
 
-# =============================================================================
-# TAB 3: PORTFOLIO WATCHLIST & LAKEBASE PERSISTENCE
-# =============================================================================
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — PORTFOLIO WATCHLIST
+# ══════════════════════════════════════════════════════════════════════════════
 with tab3:
-    st.markdown("### ⭐ Portfolio Watchlist & Lakebase State Mutations")
+    st.markdown("### ⭐ Portfolio Watchlist")
+    st.caption("Live read/write operations against Lakebase `watchlist_tickers` table.")
 
-    # Display Current Watchlist Table
-    watchlist_items = run_query("""
-        SELECT wt.ticker, c.name, wt.target_buy_price, wt.target_sell_price, wt.notes, wt.added_at
+    # ── Live watchlist table ──
+    wl_rows = run_query("""
+        SELECT wt.ticker,
+               COALESCE(c.name, wt.ticker) AS name,
+               wt.target_buy_price,
+               wt.target_sell_price,
+               wt.notes,
+               wt.added_at
         FROM watchlist_tickers wt
         LEFT JOIN companies c ON wt.ticker = c.ticker
         WHERE wt.watchlist_id = 'default_watchlist'
         ORDER BY wt.added_at DESC;
     """)
 
-    st.markdown("#### Your Portfolio Watchlist (Lakebase Table)")
-    if watchlist_items:
-        df_watch = pd.DataFrame(watchlist_items)
-        st.dataframe(df_watch, use_container_width=True)
+    if wl_rows:
+        df_wl = pd.DataFrame(wl_rows)
+        # Safely format date column
+        if "added_at" in df_wl.columns:
+            df_wl["added_at"] = df_wl["added_at"].apply(fmt_date)
+        st.dataframe(
+            df_wl.rename(columns={
+                "ticker": "Ticker",
+                "name": "Company",
+                "target_buy_price": "Buy Target ($)",
+                "target_sell_price": "Sell Target ($)",
+                "notes": "Thesis Notes",
+                "added_at": "Added Date",
+            }),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # Mini price bar chart for watchlist tickers
+        if _client_ok and wl_rows:
+            wl_tickers = [r["ticker"] for r in wl_rows]
+            chart_data = []
+            for t in wl_tickers:
+                try:
+                    q = backend["client"].get_ticker_quote(t)
+                    chart_data.append({"Ticker": t, "Close ($)": q.get("close_price", 0)})
+                except Exception:
+                    pass
+            if chart_data:
+                df_chart = pd.DataFrame(chart_data)
+                fig2 = px.bar(
+                    df_chart, x="Ticker", y="Close ($)",
+                    color="Ticker", text="Close ($)",
+                    color_discrete_sequence=["#6366F1","#10B981","#F59E0B","#EF4444","#3B82F6","#8B5CF6"],
+                )
+                fig2.update_traces(texttemplate="$%{text:.2f}", textposition="outside")
+                fig2.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    yaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
+                    height=260,
+                    showlegend=False,
+                    margin=dict(l=10,r=10,t=20,b=10),
+                )
+                st.plotly_chart(fig2, use_container_width=True)
     else:
-        st.info("Watchlist is currently empty.")
+        st.info("Your watchlist is empty. Add your first ticker below!")
 
     st.markdown("---")
+    add_col, del_col = st.columns(2)
 
-    col_add, col_del = st.columns(2)
-    
-    with col_add:
-        st.markdown("#### ➕ Add / Update Watchlist Item")
-        with st.form("add_watchlist_form"):
-            t_input = st.selectbox("Select Ticker", ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA"])
-            target_buy = st.number_input("Target Buy Price ($)", min_value=0.0, value=120.0, step=5.0)
-            target_sell = st.number_input("Target Sell Price ($)", min_value=0.0, value=160.0, step=5.0)
-            notes_input = st.text_area("Investment Thesis Notes", "Strong market positioning in enterprise AI compute workloads.")
-            
-            if st.form_submit_button("Save Item to Lakebase"):
-                run_write("INSERT INTO companies (ticker, name) VALUES (%s, %s) ON CONFLICT DO NOTHING;", (t_input, f"{t_input} Corp"))
+    with add_col:
+        st.markdown("#### ➕ Add / Update Ticker")
+        with st.form("wl_add_form", clear_on_submit=False):
+            t_pick = st.selectbox("Ticker", TICKERS, key="wl_add_tick")
+            buy_p  = st.number_input("Target Buy Price ($)", min_value=0.0, value=120.0, step=5.0)
+            sell_p = st.number_input("Target Sell Price ($)", min_value=0.0, value=160.0, step=5.0)
+            thesis = st.text_area("Investment Thesis", "Strong structural tailwinds in AI compute infrastructure.", height=80)
+            if st.form_submit_button("💾 Save to Lakebase", use_container_width=True, type="primary"):
+                run_write(
+                    "INSERT INTO companies (ticker, name) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+                    (t_pick, f"{t_pick} Corp")
+                )
                 run_write("""
-                    INSERT INTO watchlist_tickers (watchlist_id, ticker, target_buy_price, target_sell_price, notes)
+                    INSERT INTO watchlist_tickers
+                        (watchlist_id, ticker, target_buy_price, target_sell_price, notes)
                     VALUES ('default_watchlist', %s, %s, %s, %s)
                     ON CONFLICT (watchlist_id, ticker) DO UPDATE SET
                         target_buy_price = EXCLUDED.target_buy_price,
                         target_sell_price = EXCLUDED.target_sell_price,
                         notes = EXCLUDED.notes;
-                """, (t_input, target_buy, target_sell, notes_input))
-                st.success(f"Saved {t_input} to Lakebase database!")
+                """, (t_pick, buy_p, sell_p, thesis))
+                st.success(f"✅ {t_pick} saved to Lakebase watchlist!")
                 st.rerun()
 
-    with col_del:
-        st.markdown("#### 🗑️ Remove Watchlist Item")
-        with st.form("remove_watchlist_form"):
-            t_remove = st.selectbox("Select Ticker to Remove", ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA"], key="del_tick")
-            if st.form_submit_button("Remove Item from Lakebase"):
-                count = run_write("DELETE FROM watchlist_tickers WHERE watchlist_id = 'default_watchlist' AND ticker = %s;", (t_remove,))
-                if count > 0:
-                    st.success(f"Removed {t_remove} from watchlist.")
+    with del_col:
+        st.markdown("#### 🗑️ Remove Ticker")
+        with st.form("wl_del_form", clear_on_submit=False):
+            t_del = st.selectbox("Ticker to Remove", TICKERS, key="wl_del_tick")
+            if st.form_submit_button("Remove from Watchlist", use_container_width=True):
+                cnt = run_write(
+                    "DELETE FROM watchlist_tickers WHERE watchlist_id='default_watchlist' AND ticker=%s;",
+                    (t_del,)
+                )
+                if cnt > 0:
+                    st.success(f"✅ Removed {t_del}")
                 else:
-                    st.warning(f"{t_remove} was not in watchlist.")
+                    st.warning(f"{t_del} was not in your watchlist")
                 st.rerun()
 
     st.markdown("---")
-    
-    col_notes, col_reports = st.columns(2)
-    
-    with col_notes:
-        st.markdown("#### 📝 Saved AI Research Notes")
-        notes = run_query("SELECT ticker, title, content, created_at FROM research_notes ORDER BY created_at DESC LIMIT 5;")
-        if notes:
-            for n in notes:
-                with st.expander(f"[{n['ticker']}] {n['title']}"):
-                    st.write(n['content'])
-                    st.caption(f"Created: {n['created_at']}")
-        else:
-            st.caption("No research notes saved yet. Ask the AI Agent to save a note!")
+    note_col, report_col = st.columns(2)
 
-    with col_reports:
-        st.markdown("#### 📊 Formally Generated Stock Analysis Reports")
-        reports = run_query("SELECT ticker, recommendation, summary, bull_case, bear_case, created_at FROM analysis_reports ORDER BY created_at DESC LIMIT 5;")
-        if reports:
-            for r in reports:
-                rec_color = "🟢" if r['recommendation'] == 'BUY' else ("🔴" if r['recommendation'] == 'SELL' else "🟡")
-                with st.expander(f"{rec_color} [{r['ticker']}] Recommendation: {r['recommendation']}"):
-                    st.write(f"**Summary:** {r['summary']}")
-                    st.write(f"**Bull Case:** {r['bull_case']}")
-                    st.write(f"**Bear Case:** {r['bear_case']}")
-                    st.caption(f"Generated at: {r['created_at']}")
+    with note_col:
+        st.markdown("#### 📝 Research Notes")
+        note_rows = run_query(
+            "SELECT ticker, title, content, created_at FROM research_notes ORDER BY created_at DESC LIMIT 6;"
+        )
+        if note_rows:
+            for n in note_rows:
+                with st.expander(f"[{safe_str(n.get('ticker'))}] {safe_str(n.get('title'))[:60]}"):
+                    st.write(safe_str(n.get("content")))
+                    st.caption(f"📅 {fmt_date(n.get('created_at'))}")
         else:
-            st.caption("No analysis reports generated yet. Ask the AI Agent to generate a report!")
+            st.caption("No notes yet. Ask the AI Agent to save a research note!")
 
-# =============================================================================
-# TAB 4: AI INVESTMENT COPILOT (ReAct AGENT WORKSPACE)
-# =============================================================================
+    with report_col:
+        st.markdown("#### 📊 Analysis Reports")
+        rep_rows = run_query(
+            "SELECT ticker, recommendation, summary, bull_case, bear_case, created_at "
+            "FROM analysis_reports ORDER BY created_at DESC LIMIT 6;"
+        )
+        if rep_rows:
+            for r in rep_rows:
+                rec = safe_str(r.get("recommendation"), "HOLD")
+                ico = "🟢" if rec == "BUY" else ("🔴" if rec == "SELL" else "🟡")
+                with st.expander(f"{ico} [{safe_str(r.get('ticker'))}] {rec} · {fmt_date(r.get('created_at'))}"):
+                    st.write(f"**Summary:** {safe_str(r.get('summary'))}")
+                    st.write(f"**Bull Case:** {safe_str(r.get('bull_case'))}")
+                    st.write(f"**Bear Case:** {safe_str(r.get('bear_case'))}")
+        else:
+            st.caption("No reports yet. Ask the AI Agent to generate an analysis report!")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — AI AGENT COPILOT
+# ══════════════════════════════════════════════════════════════════════════════
 with tab4:
-    st.markdown("### 🤖 AI Investment Copilot Agent Workspace")
-    st.caption("Command the AI agent to search unstructured market data, pull quotes, or mutate database state in real-time.")
+    st.markdown("### 🤖 AI Investment Copilot")
+    st.caption("ReAct agent with READ (RAG search, quotes, watchlist) and WRITE (add/remove, notes, reports) tools.")
 
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {"role": "assistant", "content": "Hello! I am your AI Investment Copilot connected to Databricks Lakebase. Ask me to search news, check stock prices, add tickers to your watchlist, or generate analysis reports!"}
-        ]
+    if not _agent_ok:
+        st.error(f"⚠️ AI Agent unavailable: {backend.get('agent_error', 'Unknown error')}")
+    else:
+        # Chat history
+        if "messages" not in st.session_state:
+            st.session_state.messages = [{
+                "role": "assistant",
+                "content": (
+                    "Hi! I'm your AI Investment Copilot powered by Databricks Lakebase. "
+                    "You can ask me to:\n"
+                    "- 🔍 **Search** market news: *'Search AI infrastructure news for NVDA'*\n"
+                    "- 📊 **Analyse** a stock: *'Generate a BUY report for AAPL'*\n"
+                    "- ➕ **Add** to watchlist: *'Add MSFT to my watchlist at 420'*\n"
+                    "- 📋 **Show** my portfolio: *'Show my watchlist'*\n"
+                    "- 📝 **Save** a note: *'Save a research note for TSLA'*"
+                ),
+                "actions": []
+            }]
 
-    # Display Chat History
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-            if "actions" in msg:
-                for act in msg["actions"]:
-                    st.markdown(f"<span class='badge-action'>⚡ Action Executed</span> <code>{act}</code>", unsafe_allow_html=True)
+        # Render chat
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+                for act in msg.get("actions", []):
+                    st.markdown(f"<span class='badge-action'>⚡ {act}</span>", unsafe_allow_html=True)
 
-    # Quick Agent Prompts
-    st.markdown("**💡 Agent Quick Commands:**")
-    prompt_cols = st.columns(4)
-    quick_prompt = None
-    if prompt_cols[0].button("➕ Add NVDA Target 120"):
-        quick_prompt = "Add NVDA to my watchlist with target buy 120"
-    if prompt_cols[1].button("🔍 Search Apple AI News"):
-        quick_prompt = "Search news about Apple AI and cloud infrastructure"
-    if prompt_cols[2].button("📊 Analyze TSLA Stock"):
-        quick_prompt = "Generate a BUY analysis report for TSLA"
-    if prompt_cols[3].button("📋 Show Watchlist"):
-        quick_prompt = "Show my current portfolio watchlist"
+        # Quick command buttons
+        st.markdown("**Quick Commands:**")
+        qc = st.columns(4)
+        qp = None
+        if qc[0].button("➕ Add NVDA @ 120", use_container_width=True):   qp = "Add NVDA to my watchlist with target buy 120"
+        if qc[1].button("🔍 AI News AAPL", use_container_width=True):     qp = "Search news about Apple artificial intelligence"
+        if qc[2].button("📊 Analyse TSLA", use_container_width=True):     qp = "Generate a BUY analysis report for TSLA"
+        if qc[3].button("📋 My Watchlist", use_container_width=True):     qp = "Show my current portfolio watchlist"
 
-    user_input = st.chat_input("Type your command for the AI Agent...") or quick_prompt
+        user_input = st.chat_input("Ask the AI Agent anything about your portfolio or the market...") or qp
 
-    if user_input:
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
+        if user_input:
+            st.session_state.messages.append({"role": "user", "content": user_input, "actions": []})
+            with st.chat_message("user"):
+                st.markdown(user_input)
 
-        with st.chat_message("assistant"):
-            with st.spinner("AI Agent evaluating intent & selecting tools..."):
-                response = agent.run(user_input)
-                answer = response["answer"]
-                actions = response.get("actions_taken", [])
+            with st.chat_message("assistant"):
+                with st.spinner("AI Agent selecting tools and reasoning..."):
+                    try:
+                        response = backend["agent"].run(user_input)
+                        answer   = safe_str(response.get("answer", ""), "No response.")
+                        actions  = response.get("actions_taken", [])
+                        st.markdown(answer)
+                        for act in actions:
+                            st.markdown(f"<span class='badge-action'>⚡ {act}</span>", unsafe_allow_html=True)
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": answer,
+                            "actions": actions
+                        })
+                    except Exception as e:
+                        err_msg = f"Agent error: {e}"
+                        st.error(err_msg)
+                        st.session_state.messages.append({"role": "assistant", "content": err_msg, "actions": []})
 
-                st.markdown(answer)
-                for act in actions:
-                    st.markdown(f"<span class='badge-action'>⚡ Action Executed</span> <code>{act}</code>", unsafe_allow_html=True)
+        st.markdown("---")
+        with st.expander("🛠️ Available Agent Tools"):
+            tools = [
+                ("tool_search_news_rag",         "READ",  "Semantic vector search over pgvector 384-dim news embeddings"),
+                ("tool_get_ticker_snapshot",      "READ",  "Live/fallback market price, volume, and company fundamentals"),
+                ("tool_get_watchlist",            "READ",  "List portfolio tickers with target prices from Lakebase"),
+                ("tool_add_to_watchlist",         "WRITE", "INSERT/UPSERT ticker into watchlist_tickers table"),
+                ("tool_remove_from_watchlist",    "WRITE", "DELETE ticker from watchlist_tickers table"),
+                ("tool_save_research_note",       "WRITE", "Write research note into research_notes table"),
+                ("tool_generate_analysis_report", "WRITE", "Generate & persist BUY/HOLD/SELL report in analysis_reports table"),
+            ]
+            for name, rw, desc in tools:
+                color = "#10B981" if rw == "READ" else "#6366F1"
+                st.markdown(
+                    f"<div class='tool-row'><code style='color:{color}'>{rw}</code> &nbsp; "
+                    f"<strong>{name}</strong><br><span style='color:#8892A4'>{desc}</span></div>",
+                    unsafe_allow_html=True
+                )
 
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer,
-                    "actions": actions
-                })
-
-    st.markdown("---")
-    with st.expander("🛠️ View Agent Tool Capabilities"):
-        st.markdown("""
-        - **`tool_search_news_rag`** (READ): Queries pgvector 384-dim embeddings for market news snippets.
-        - **`tool_get_ticker_snapshot`** (READ): Fetches live/snapshot price, P/E ratio, market cap.
-        - **`tool_get_watchlist`** (READ): Lists saved portfolio tickers from Lakebase.
-        - **`tool_add_to_watchlist`** (WRITE): Inserts/updates ticker target prices in `watchlist_tickers`.
-        - **`tool_remove_from_watchlist`** (WRITE): Deletes ticker from user watchlist.
-        - **`tool_save_research_note`** (WRITE): Writes research note to `research_notes` table.
-        - **`tool_generate_analysis_report`** (WRITE): Generates & stores formal BUY/HOLD/SELL report.
-        """)
-
-# =============================================================================
-# TAB 5: SYSTEM & PYSPARK PIPELINE TELEMETRY
-# =============================================================================
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — SYSTEM HEALTH
+# ══════════════════════════════════════════════════════════════════════════════
 with tab5:
-    st.markdown("### ⚡ PySpark Medallion Pipeline & Database Telemetry")
-    
-    st.markdown("#### System Architecture Flow")
+    st.markdown("### ⚡ PySpark Medallion Pipeline & Database Health")
+
+    st.markdown("#### Architecture")
     st.code("""
-[ Massive API ] ──► [ PySpark Bronze Ingestion ] ──► [ Silver Data Cleaning ]
-                                                           │
-                                                           ▼
-                                                [ Gold Business Aggregations ]
-                                                           │
-                                                           ▼
-                                          [ Lakebase PostgreSQL + pgvector ]
+  Massive REST API
+       │
+       ▼
+  [Bronze Layer]   ── PySpark raw ingestion (6 tickers × quotes + news)
+       │
+       ▼
+  [Silver Layer]   ── Schema validation, sentiment enrichment, company upserts
+       │
+       ▼
+  [Gold Layer]     ── Business aggregations, price snapshots
+       │
+       ▼
+  Lakebase (PostgreSQL + pgvector)
+       │
+   ┌───┴────────────────────────────────┐
+   │                                    │
+   ▼                                    ▼
+Relational Tables             news_embeddings (384-dim HNSW)
+(companies, watchlist,        ← sentence-transformers all-MiniLM-L6-v2
+ news_articles, reports…)     ← pgvector cosine similarity (<=>)
     """, language="text")
 
     st.markdown("---")
     st.markdown("#### Lakebase Table Record Audit")
-    
-    tables_to_audit = ["users", "companies", "watchlists", "watchlist_tickers", "price_snapshots", "news_articles", "news_embeddings", "research_notes", "analysis_reports"]
-    audit_data = []
-    
-    for t in tables_to_audit:
-        try:
-            cnt = run_query(f"SELECT COUNT(*) AS c FROM {t};")[0]["c"]
-            audit_data.append({"Table Name": t, "Record Count": cnt, "Status": "Active"})
-        except Exception as e:
-            audit_data.append({"Table Name": t, "Record Count": 0, "Status": f"Error: {e}"})
 
-    df_audit = pd.DataFrame(audit_data)
-    st.dataframe(df_audit, use_container_width=True)
+    db_tables = [
+        "users", "companies", "watchlists", "watchlist_tickers",
+        "price_snapshots", "news_articles", "news_embeddings",
+        "research_notes", "analysis_reports"
+    ]
+    audit = []
+    for t in db_tables:
+        try:
+            r = run_query(f"SELECT COUNT(*) AS c FROM {t};")
+            cnt = r[0]["c"] if r else 0
+            audit.append({"Table": t, "Records": cnt, "Status": "✅ Active"})
+        except Exception as ex:
+            audit.append({"Table": t, "Records": 0, "Status": f"⚠️ {str(ex)[:40]}"})
+
+    df_audit = pd.DataFrame(audit)
+    st.dataframe(df_audit, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.markdown("#### Pipeline Init Status")
+    pi = st.session_state.get("pipeline_init", {})
+    if pi.get("ok"):
+        st.success(f"✅ {pi.get('message', 'Pipeline OK')}")
+    else:
+        st.error(f"⚠️ Pipeline Error: {pi.get('message', 'Unknown')}")
