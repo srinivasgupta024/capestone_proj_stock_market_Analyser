@@ -3,12 +3,20 @@ Databricks Scheduled Job Runner Entrypoint.
 Executes Bronze Ingestion, Silver/Gold Persistence, and Vector Embeddings generation.
 """
 
+import os
 import sys
 import logging
 from pathlib import Path
 
-# Add project root to sys.path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# Add project root to sys.path safely (supports both standard python and Databricks IPykernel)
+if "__file__" in globals():
+    project_root = Path(__file__).resolve().parent.parent
+else:
+    project_root = Path.cwd()
+
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 
 from src.lakebase import init_db
 from src.spark_pipeline.ingestion import run_bronze_ingestion
