@@ -137,4 +137,3 @@ ON CONFLICT (user_id) DO NOTHING;
 INSERT INTO watchlists (watchlist_id, user_id, name, description)
 VALUES ('default_watchlist', 'default_user', 'Main Portfolio Watchlist', 'Primary stock research watchlist')
 ON CONFLICT (watchlist_id) DO NOTHING;
-
