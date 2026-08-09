@@ -36,8 +36,11 @@ class StockMarketAgent:
         actions_taken = []
         result_text = ""
 
-        # Extract tickers mentioned (e.g. AAPL, NVDA, MSFT, AMZN, GOOGL, TSLA)
-        tickers = re.findall(r'\b(AAPL|NVDA|MSFT|AMZN|GOOGL|TSLA)\b', user_prompt.upper())
+        # Extract tickers mentioned (known tickers or uppercase stock symbols like AAPL, NVDA, MSFT, AMZN, GOOGL, TSLA, META, AMD, etc.)
+        known_tickers = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "TSLA", "META", "AMD", "INTC", "NFLX"]
+        matched_known = [t for t in known_tickers if re.search(r'\b' + t + r'\b', user_prompt, re.IGNORECASE)]
+        generic_matches = [m.upper() for m in re.findall(r'\b[A-Z]{2,5}\b', user_prompt) if m.upper() not in ["ADD", "THE", "FOR", "BUY", "SELL", "HOLD", "SHOW", "NOTE", "RAG", "NEWS", "WITH", "THIS", "MY"]]
+        tickers = matched_known or generic_matches
         primary_ticker = tickers[0] if tickers else None
 
         # Rule 1: Watchlist Management (Add / Remove)

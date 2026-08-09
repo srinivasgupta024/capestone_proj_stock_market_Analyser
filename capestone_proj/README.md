@@ -50,6 +50,7 @@ Ensure Python 3.10+ is installed:
 ```bash
 pip install -r requirements.txt
 ```
+*(Note: `psycopg2-binary` is omitted from `requirements.txt` to avoid package conflicts in Databricks Apps, where `psycopg2` is pre-installed).*
 
 ### 2. Environment Configuration
 The application reads database connection settings from `.env`:

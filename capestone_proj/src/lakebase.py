@@ -6,8 +6,17 @@ Handles connections, schema initialization, read/write SQL operations.
 from contextlib import contextmanager
 import logging
 from pathlib import Path
-import psycopg2
-from psycopg2.extras import RealDictCursor
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+except ImportError as e:
+    raise ImportError(
+        "psycopg2 is required to connect to Lakebase PostgreSQL. "
+        "In Databricks Apps environment, psycopg2 is pre-installed. "
+        "In local development, install via `pip install psycopg2-binary`."
+    ) from e
+
 from sqlalchemy import create_engine
 
 from src.config import LAKEBASE_URL
