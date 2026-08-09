@@ -614,42 +614,62 @@ with tab3:
 
     with add_col:
         st.markdown("#### ➕ Add / Update Ticker")
-        with st.form("wl_add_form", clear_on_submit=False):
-            t_pick = st.selectbox("Ticker", TICKERS, key="wl_add_tick")
+        with st.form("wl_add_form", clear_on_submit=True):
+            t_pick_raw = st.text_input(
+                "Ticker Symbol",
+                placeholder="e.g. NVDA, AAPL, SPY, QQQ, META, AMD...",
+                help="Enter any valid stock ticker symbol. Not limited to the 6 default tickers.",
+            )
             buy_p  = st.number_input("Target Buy Price ($)", min_value=0.0, value=120.0, step=5.0)
             sell_p = st.number_input("Target Sell Price ($)", min_value=0.0, value=160.0, step=5.0)
             thesis = st.text_area("Investment Thesis", "Strong structural tailwinds in AI compute infrastructure.", height=80)
             if st.form_submit_button("💾 Save to Lakebase", use_container_width=True, type="primary"):
-                run_write(
-                    "INSERT INTO companies (ticker, name) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
-                    (t_pick, f"{t_pick} Corp")
-                )
-                run_write("""
-                    INSERT INTO watchlist_tickers
-                        (watchlist_id, ticker, target_buy_price, target_sell_price, notes)
-                    VALUES ('default_watchlist', %s, %s, %s, %s)
-                    ON CONFLICT (watchlist_id, ticker) DO UPDATE SET
-                        target_buy_price = EXCLUDED.target_buy_price,
-                        target_sell_price = EXCLUDED.target_sell_price,
-                        notes = EXCLUDED.notes;
-                """, (t_pick, buy_p, sell_p, thesis))
-                st.success(f"✅ {t_pick} saved to Lakebase watchlist!")
-                st.rerun()
+                t_pick = t_pick_raw.strip().upper()
+                if not t_pick:
+                    st.error("Please enter a ticker symbol.")
+                elif not t_pick.isalpha() or len(t_pick) > 6:
+                    st.error("Ticker must be 1–6 letters (e.g. NVDA, SPY, QQQ).")
+                else:
+                    run_write(
+                        "INSERT INTO companies (ticker, name) VALUES (%s, %s) ON CONFLICT DO NOTHING;",
+                        (t_pick, f"{t_pick} Corp")
+                    )
+                    run_write("""
+                        INSERT INTO watchlist_tickers
+                            (watchlist_id, ticker, target_buy_price, target_sell_price, notes)
+                        VALUES ('default_watchlist', %s, %s, %s, %s)
+                        ON CONFLICT (watchlist_id, ticker) DO UPDATE SET
+                            target_buy_price = EXCLUDED.target_buy_price,
+                            target_sell_price = EXCLUDED.target_sell_price,
+                            notes = EXCLUDED.notes;
+                    """, (t_pick, buy_p, sell_p, thesis))
+                    st.success(f"✅ {t_pick} saved to Lakebase watchlist!")
+                    st.rerun()
 
     with del_col:
         st.markdown("#### 🗑️ Remove Ticker")
-        with st.form("wl_del_form", clear_on_submit=False):
-            t_del = st.selectbox("Ticker to Remove", TICKERS, key="wl_del_tick")
-            if st.form_submit_button("Remove from Watchlist", use_container_width=True):
-                cnt = run_write(
-                    "DELETE FROM watchlist_tickers WHERE watchlist_id='default_watchlist' AND ticker=%s;",
-                    (t_del,)
+        # Dynamically pull tickers actually in the watchlist — not hardcoded
+        existing_tickers = [r["ticker"] for r in (wl_rows or [])]
+        if not existing_tickers:
+            st.info("Your watchlist is empty — nothing to remove.")
+        else:
+            with st.form("wl_del_form", clear_on_submit=False):
+                t_del = st.selectbox(
+                    "Select Ticker to Remove",
+                    existing_tickers,
+                    key="wl_del_tick",
+                    help="Only tickers currently in your watchlist are shown here."
                 )
-                if cnt > 0:
-                    st.success(f"✅ Removed {t_del}")
-                else:
-                    st.warning(f"{t_del} was not in your watchlist")
-                st.rerun()
+                if st.form_submit_button("🗑️ Remove from Watchlist", use_container_width=True):
+                    cnt = run_write(
+                        "DELETE FROM watchlist_tickers WHERE watchlist_id='default_watchlist' AND ticker=%s;",
+                        (t_del,)
+                    )
+                    if cnt > 0:
+                        st.success(f"✅ Removed {t_del} from watchlist.")
+                    else:
+                        st.warning(f"{t_del} was not found in your watchlist.")
+                    st.rerun()
 
     st.markdown("---")
     note_col, report_col = st.columns(2)
