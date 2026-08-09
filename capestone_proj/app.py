@@ -1,7 +1,6 @@
 """
 LakePulse AI — Stock Market Research Assistant & Investment Copilot
 Databricks Apps Entrypoint | Streamlit Frontend
-Phase 1-3: Dynamic tickers · Top Navbar · Session Chat · Portfolio P&L · Rich Health Dashboard
 """
 
 import streamlit as st
@@ -25,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── SESSION IDENTITY (Phase 2) ───────────────────────────────────────────────
+# ─── SESSION IDENTITY ─────────────────────────────────────────────────────────
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())[:8].upper()
 if "session_started" not in st.session_state:
@@ -34,7 +33,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
         "content": (
-            "Hello! I'm your **LakePulse AI Copilot**. I can:\n\n"
+            "Hello! I'm your **LakePulse AI Copilot**. You can ask me to:\n\n"
             "- 🔍 `Search AI infrastructure news for NVDA`\n"
             "- 📊 `Generate a BUY report for AAPL`\n"
             "- ➕ `Add MSFT to my watchlist at 420`\n"
@@ -47,7 +46,7 @@ if "messages" not in st.session_state:
 
 SID = st.session_state.session_id
 
-# ─── DESIGN SYSTEM ────────────────────────────────────────────────────────────
+# ─── DESIGN SYSTEM (FORCED DARK + STICKY TOPNAV) ──────────────────────────────
 st.markdown("""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -61,7 +60,7 @@ st.markdown("""
   }
   [data-testid="stHeader"],[data-testid="stDecoration"] { display:none!important; }
 
-  /* SIDEBAR */
+  /* SIDEBAR - SLEEK & INFORMATIONAL */
   section[data-testid="stSidebar"],
   section[data-testid="stSidebar"] > div,
   section[data-testid="stSidebar"] > div > div {
@@ -79,6 +78,29 @@ st.markdown("""
     background:rgba(99,102,241,0.26)!important;
     transform:translateY(-1px);
   }
+
+  /* STICKY TOP NAVBAR */
+  .topnav {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    background: rgba(10, 13, 26, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .topnav-brand { font-size:1.22rem; font-weight:800; color:#E8EDFF; letter-spacing:-0.5px; }
+  .topnav-sub   { font-size:0.72rem; color:#6B7280; margin-top:1px; }
+  .topnav-right { display:flex; align-items:center; gap:14px; }
+  .topnav-stat  { text-align:right; }
+  .topnav-stat-val { font-size:1.05rem; font-weight:700; color:#E8EDFF; }
+  .topnav-stat-lbl { font-size:0.68rem; color:#6B7280; text-transform:uppercase; letter-spacing:0.06em; }
 
   /* TABS AS NAV */
   .stTabs [data-baseweb="tab-list"] {
@@ -150,9 +172,9 @@ st.markdown("""
     border-radius:10px!important; color:#E8EDFF!important;
   }
 
-  /* DATAFRAME overrides */
-  [data-testid="stDataFrame"] iframe { border-radius:12px; }
-  .stDataFrame { border-radius:12px; overflow:hidden; }
+  /* DATAFRAME / DATA EDITOR DARK THEME */
+  [data-testid="stDataFrame"] iframe, [data-testid="stDataEditor"] iframe { border-radius:12px; }
+  .stDataFrame, .stDataEditor { border-radius:12px; overflow:hidden; }
 
   /* EXPANDERS */
   [data-testid="stExpander"] {
@@ -178,7 +200,7 @@ st.markdown("""
   }
 
   /* DIVIDERS */
-  hr { border-color:rgba(255,255,255,0.07)!important; margin:20px 0!important; }
+  hr { border-color:rgba(255,255,255,0.07)!important; margin:18px 0!important; }
 
   /* BADGES */
   .badge-bullish { background:rgba(16,185,129,0.15); color:#34D399; border:1px solid rgba(16,185,129,0.35); padding:2px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; display:inline-block; }
@@ -188,14 +210,14 @@ st.markdown("""
   .badge-rag     { background:rgba(14,165,233,0.15); color:#38BDF8; border:1px solid rgba(14,165,233,0.35); padding:2px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; display:inline-block; }
   .badge-sess    { background:rgba(139,92,246,0.18); color:#C4B5FD; border:1px solid rgba(139,92,246,0.4);  padding:2px 10px; border-radius:20px; font-size:0.74rem; font-weight:700; display:inline-block; }
 
-  /* NEWS CARD */
+  /* NEWS CARD - COMPACT FOR RIGHT COLUMN */
   .news-card {
     background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.06);
-    border-radius:12px; padding:13px 17px; margin-bottom:9px; transition:border-color 0.2s;
+    border-radius:12px; padding:12px 15px; margin-bottom:9px; transition:border-color 0.2s;
   }
   .news-card:hover { border-color:rgba(99,102,241,0.35); }
-  .news-title { font-size:0.90rem; font-weight:600; color:#E8EDFF; line-height:1.4; }
-  .news-meta  { font-size:0.76rem; color:#8892A4; margin-top:5px; }
+  .news-title { font-size:0.87rem; font-weight:600; color:#E8EDFF; line-height:1.35; }
+  .news-meta  { font-size:0.74rem; color:#8892A4; margin-top:5px; }
 
   /* TOOL ROW */
   .tool-row { padding:9px 14px; border-radius:8px; background:rgba(255,255,255,0.03);
@@ -204,7 +226,7 @@ st.markdown("""
 
   /* SIDEBAR LABELS */
   .sb-label { font-size:0.67rem; font-weight:700; letter-spacing:0.10em;
-    text-transform:uppercase; color:#374151; margin:16px 0 7px 0; display:block; }
+    text-transform:uppercase; color:#4B5568; margin:16px 0 7px 0; display:block; }
   .sb-status-row { display:flex; align-items:center; gap:8px; padding:7px 10px;
     border-radius:8px; background:rgba(255,255,255,0.025); margin-bottom:6px;
     font-size:0.83rem; color:#C8D0E0; }
@@ -235,24 +257,6 @@ st.markdown("""
     background:rgba(15,18,36,0.95); border:1px solid rgba(255,255,255,0.07);
     border-radius:14px; overflow:hidden; margin-bottom:16px;
   }
-
-  /* NAVBAR */
-  .topnav {
-    background:linear-gradient(90deg,rgba(10,13,26,0.98) 0%,rgba(15,18,40,0.98) 100%);
-    border-bottom:1px solid rgba(99,102,241,0.2);
-    padding:10px 24px; display:flex; align-items:center;
-    justify-content:space-between; margin-bottom:18px;
-    border-radius:14px;
-  }
-  .topnav-brand { font-size:1.22rem; font-weight:800; color:#E8EDFF; letter-spacing:-0.5px; }
-  .topnav-sub   { font-size:0.72rem; color:#6B7280; margin-top:1px; }
-  .topnav-right { display:flex; align-items:center; gap:12px; }
-  .topnav-stat  { text-align:right; }
-  .topnav-stat-val { font-size:1.05rem; font-weight:700; color:#E8EDFF; }
-  .topnav-stat-lbl { font-size:0.68rem; color:#6B7280; text-transform:uppercase; letter-spacing:0.06em; }
-
-  /* P&L bar */
-  .pnl-bar { height:6px; border-radius:3px; margin-top:4px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -304,7 +308,6 @@ def dark_layout(fig, height=320, title="", show_legend=True):
     return fig
 
 def simulate_history(close, high, low, _open, days=45, seed=42):
-    """Generate synthetic OHLCV anchored to today's real snapshot."""
     random.seed(seed)
     rows = []
     price = close * 0.88
@@ -322,7 +325,7 @@ def simulate_history(close, high, low, _open, days=45, seed=42):
     rows[-1].update({"open": _open, "high": high, "low": low, "close": close})
     return rows
 
-# ─── BACKEND ──────────────────────────────────────────────────────────────────
+# ─── BACKEND LOADERS ──────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def load_backend():
     m = {}
@@ -385,34 +388,52 @@ def run_write(sql, params=None):
     except Exception as e:
         logger.warning(f"run_write: {e}"); return 0
 
-# ─── DYNAMIC TICKER LIST (Phase 1 fix) ────────────────────────────────────────
+# ─── TICKERS & FULL NAMES MAPPING ─────────────────────────────────────────────
 DEFAULT_TICKERS = ["NVDA","AAPL","MSFT","AMZN","GOOGL","TSLA"]
+COMPANY_NAME_FALLBACKS = {
+    "NVDA": "NVIDIA Corporation",
+    "AAPL": "Apple Inc.",
+    "MSFT": "Microsoft Corporation",
+    "AMZN": "Amazon.com Inc.",
+    "GOOGL": "Alphabet Inc.",
+    "TSLA": "Tesla Inc.",
+    "QQQ": "Invesco QQQ Trust",
+    "SPY": "SPDR S&P 500 ETF",
+    "META": "Meta Platforms Inc.",
+    "AMD": "Advanced Micro Devices",
+    "NFLX": "Netflix Inc.",
+}
 
-@st.cache_data(ttl=60, show_spinner=False)
-def get_all_tickers():
-    """Pull ALL tickers from companies table — not a hardcoded list."""
-    rows = run_query("SELECT ticker FROM companies ORDER BY ticker;")
+@st.cache_data(ttl=30, show_spinner=False)
+def get_ticker_display_data():
+    """Query DB companies table for all tickers and map to Ticker — Full Name format."""
+    rows = run_query("SELECT ticker, name FROM companies ORDER BY ticker;")
+    name_map = COMPANY_NAME_FALLBACKS.copy()
+    tickers = list(DEFAULT_TICKERS)
     if rows:
-        return [r["ticker"] for r in rows]
-    return DEFAULT_TICKERS
+        for r in rows:
+            t = r["ticker"]
+            n = r.get("name")
+            if t not in tickers:
+                tickers.append(t)
+            if n:
+                name_map[t] = n
+    return tickers, name_map
 
-ALL_TICKERS = get_all_tickers()
+ALL_TICKERS, TICKER_NAMES = get_ticker_display_data()
 
-# ─── SIDEBAR ──────────────────────────────────────────────────────────────────
+def get_ticker_label(ticker: str) -> str:
+    """Format ticker as TICKER — Company Full Name for fluid UI readouts."""
+    name = TICKER_NAMES.get(ticker, f"{ticker} Corp")
+    return f"{ticker} — {name}"
+
+# ─── SLEEK INFORMATIONAL SIDEBAR ──────────────────────────────────────────────
 with st.sidebar:
-    # Brand
-    st.markdown(f"""
-    <div style="padding:8px 0 18px 0;border-bottom:1px solid rgba(99,102,241,0.2);margin-bottom:4px">
-      <div style="font-size:1.22rem;font-weight:800;color:#E8EDFF;letter-spacing:-0.5px">📈 LakePulse AI</div>
-      <div style="font-size:0.70rem;color:#4B5568;margin-top:2px">Databricks Capstone · 2026</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Session badge
-    st.markdown(f"""
-    <div style="margin:12px 0 4px 0">
-      <span class="badge-sess">Session: {SID}</span>
-      <span style="font-size:0.70rem;color:#4B5568;margin-left:8px">since {st.session_state.session_started}</span>
+    # Brand Header
+    st.markdown("""
+    <div style="padding:8px 0 16px 0;border-bottom:1px solid rgba(99,102,241,0.2);margin-bottom:8px">
+      <div style="font-size:1.24rem;font-weight:800;color:#E8EDFF;letter-spacing:-0.5px">📈 LakePulse AI</div>
+      <div style="font-size:0.70rem;color:#6B7280;margin-top:2px">Databricks Capstone · 2026</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -444,12 +465,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    # Quick Ticker
-    st.markdown("<span class='sb-label'>Quick Ticker</span>", unsafe_allow_html=True)
-    sb_ticker = st.selectbox("", ALL_TICKERS if ALL_TICKERS else DEFAULT_TICKERS,
-                             key="sb_ticker", label_visibility="collapsed")
-
-    # Pipeline
+    # Data Pipeline Action
     st.markdown("<span class='sb-label'>Data Pipeline</span>", unsafe_allow_html=True)
     if st.button("🔄 Refresh ETL & RAG Pipeline", use_container_width=True):
         with st.spinner("Running PySpark Bronze → Silver → Gold…"):
@@ -461,29 +477,18 @@ with st.sidebar:
                 process_silver_gold_and_persist(prices, news)
                 count = generate_and_store_news_embeddings()
                 init_pipeline.clear()
-                get_all_tickers.clear()
+                get_ticker_display_data.clear()
                 st.success(f"✅ {count} embeddings refreshed")
             except Exception as e:
                 st.error(str(e)[:100])
 
-    # Clear chat session
-    st.markdown("<span class='sb-label'>Chat Session</span>", unsafe_allow_html=True)
-    if st.button("🗑️ Clear Chat History", use_container_width=True):
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": "Chat cleared. New session started.",
-            "actions": [],
-            "ts": datetime.now().strftime("%H:%M"),
-        }]
-        st.rerun()
-
     st.markdown(
         "<div style='position:fixed;bottom:14px;left:0;width:238px;text-align:center;"
-        "font-size:0.68rem;color:#2D3748;padding:0 14px'>Built with Streamlit · Databricks Lakebase · pgvector</div>",
+        "font-size:0.68rem;color:#374151;padding:0 14px'>Built with Streamlit · Databricks Lakebase · pgvector</div>",
         unsafe_allow_html=True
     )
 
-# ─── TOP NAVBAR (Phase 2) ─────────────────────────────────────────────────────
+# ─── STICKY TOP NAVBAR ────────────────────────────────────────────────────────
 total_news = 0
 total_emb  = 0
 rows_n = run_query("SELECT COUNT(*) AS c FROM news_articles;")
@@ -514,7 +519,7 @@ st.markdown(f"""
     </div>
     <div style="width:1px;height:32px;background:rgba(255,255,255,0.08)"></div>
     <div>
-      <span class="badge-sess">⬡ {SID}</span>
+      <span class="badge-sess">⬡ Session: {SID}</span>
       <div style="font-size:0.67rem;color:#4B5568;text-align:right;margin-top:3px">{datetime.now().strftime("%b %d, %H:%M")}</div>
     </div>
   </div>
@@ -549,14 +554,16 @@ with tab1:
 
     st.markdown("---")
 
-    # ── Ticker selector — DYNAMIC (Phase 1 fix)
-    sel_col, _ = st.columns([1, 4])
+    # ── Ticker selector with full company names & Quick Add to Watchlist Button
+    sel_col, action_col = st.columns([3, 1])
+
     with sel_col:
         selected = st.selectbox(
-            "Select Ticker",
-            ALL_TICKERS if ALL_TICKERS else DEFAULT_TICKERS,
+            "Select Stock / Asset",
+            ALL_TICKERS,
+            format_func=get_ticker_label,
             index=0, key="tab1_ticker",
-            help=f"{len(ALL_TICKERS)} tickers loaded from Lakebase database"
+            help="Select a ticker symbol to inspect real-time price action, fundamentals, and news"
         )
 
     # Quote
@@ -573,6 +580,32 @@ with tab1:
     chg    = close - _open
     chg_pct= (chg / _open * 100) if _open else 0
 
+    with action_col:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        # Check if already in watchlist
+        in_wl = run_query("SELECT 1 FROM watchlist_tickers WHERE watchlist_id='default_watchlist' AND ticker=%s;", (selected,))
+        if in_wl:
+            st.button(f"✅ In Watchlist ({selected})", disabled=True, use_container_width=True)
+        else:
+            with st.popover(f"⭐ Add {selected} to Watchlist", use_container_width=True):
+                st.markdown(f"**Add {get_ticker_label(selected)}**")
+                pop_buy = st.number_input("Target Buy Price ($)", value=round(close*0.95, 2) if close else 100.0, step=1.0)
+                pop_sell = st.number_input("Target Sell Price ($)", value=round(close*1.15, 2) if close else 150.0, step=1.0)
+                pop_notes = st.text_input("Thesis Note", value=f"Tracked via Market Intelligence main screen.")
+                if st.button("Save to Portfolio", type="primary", use_container_width=True):
+                    run_write("INSERT INTO companies(ticker,name) VALUES(%s,%s) ON CONFLICT DO NOTHING;", (selected, TICKER_NAMES.get(selected, f"{selected} Corp")))
+                    run_write("""
+                        INSERT INTO watchlist_tickers(watchlist_id,ticker,target_buy_price,target_sell_price,notes)
+                        VALUES('default_watchlist',%s,%s,%s,%s)
+                        ON CONFLICT(watchlist_id,ticker) DO UPDATE SET
+                            target_buy_price=EXCLUDED.target_buy_price,
+                            target_sell_price=EXCLUDED.target_sell_price,
+                            notes=EXCLUDED.notes;
+                    """, (selected, pop_buy, pop_sell, pop_notes))
+                    st.toast(f"✅ Added {selected} to your Watchlist!")
+                    st.rerun()
+
+    # Price metrics
     m1,m2,m3,m4,m5 = st.columns(5)
     m1.metric("Close Price", f"${close:.2f}", f"{chg:+.2f} ({chg_pct:+.2f}%)")
     m2.metric("Open Price",  f"${_open:.2f}")
@@ -582,11 +615,11 @@ with tab1:
 
     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-    # ── CHARTS
+    # ── ELEGANT LAYOUT: Left Column = Charts, Right Column = Company Profile + News Feed!
     cleft, cright = st.columns([3, 2])
 
     with cleft:
-        # Candlestick + Volume
+        # Candlestick + Volume Chart
         if close > 0:
             hist = simulate_history(close, high, low, _open, days=45, seed=hash(selected)%9999)
             fig_c = make_subplots(rows=2, cols=1, shared_xaxes=True,
@@ -622,7 +655,7 @@ with tab1:
             fig_c.update_layout(
                 template="plotly_dark", paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
                 font=dict(family="Inter", color=TEXT_COLOR, size=10),
-                title=dict(text=f"{selected} — 45-Day Candlestick · Volume · 10d MA",
+                title=dict(text=f"{get_ticker_label(selected)} — 45-Day Price Action & Volume",
                            font=dict(size=12, color="#A5B4FC"), x=0),
                 margin=dict(l=10,r=10,t=36,b=10), height=390,
                 xaxis_rangeslider_visible=False,
@@ -632,7 +665,39 @@ with tab1:
             fig_c.update_yaxes(gridcolor=GRID_COLOR, linecolor=AXIS_COLOR, tickfont=dict(color=AXIS_COLOR,size=9))
             st.plotly_chart(fig_c, use_container_width=True)
 
+        # All Tickers Overview Chart
+        if _client_ok:
+            all_q = []
+            for t in DEFAULT_TICKERS:
+                try:
+                    q = backend["client"].get_ticker_quote(t)
+                    all_q.append({
+                        "Ticker": t,
+                        "Close":  safe_num(q.get("close_price",0)),
+                        "Open":   safe_num(q.get("open_price",0)),
+                    })
+                except: pass
+
+            if all_q:
+                df_all = pd.DataFrame(all_q)
+                df_all["Δ%"]    = ((df_all["Close"]-df_all["Open"])/df_all["Open"]*100).round(2)
+                df_all["Color"] = df_all["Δ%"].apply(lambda x: "#10B981" if x>=0 else "#EF4444")
+                df_all["Display"] = df_all["Ticker"].apply(lambda t: f"{t} ({TICKER_NAMES.get(t,t)})")
+
+                fig_d = go.Figure(go.Bar(
+                    x=df_all["Display"], y=df_all["Δ%"],
+                    marker_color=df_all["Color"].tolist(), opacity=0.88,
+                    text=[f"{v:+.2f}%" for v in df_all["Δ%"]],
+                    textposition="outside",
+                    textfont=dict(color=TEXT_COLOR, size=11),
+                ))
+                dark_layout(fig_d, height=270, title="Market Overview — Intraday Change %", show_legend=False)
+                fig_d.update_layout(yaxis_title="% Change")
+                fig_d.add_hline(y=0, line_dash="dot", line_color="rgba(255,255,255,0.2)")
+                st.plotly_chart(fig_d, use_container_width=True)
+
     with cright:
+        # Company Profile Card
         st.markdown(f"#### {selected} — Company Profile")
         comp = run_query("SELECT * FROM companies WHERE ticker=%s;", (selected,))
         if comp:
@@ -640,7 +705,7 @@ with tab1:
             mcap = safe_num(c.get("market_cap",0))
             pe   = safe_num(c.get("pe_ratio",0))
             divy = safe_num(c.get("dividend_yield",0))
-            st.markdown(f"**{safe_str(c.get('name'))}**")
+            st.markdown(f"**{safe_str(c.get('name', TICKER_NAMES.get(selected, selected)))}**")
             st.markdown(f"`{safe_str(c.get('sector'))}` · `{safe_str(c.get('industry'))}`")
             fa, fb = st.columns(2)
             fa.metric("Market Cap", f"${mcap/1e12:.2f}T" if mcap>1e11 else f"${mcap/1e9:.1f}B")
@@ -651,96 +716,37 @@ with tab1:
             desc = safe_str(c.get("description"), "")
             if desc:
                 st.markdown(
-                    f"<div style='font-size:0.82rem;color:#A0AEC0;background:rgba(255,255,255,0.03);"
-                    f"border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.06);margin-top:8px'>{desc}</div>",
+                    f"<div style='font-size:0.80rem;color:#A0AEC0;background:rgba(255,255,255,0.03);"
+                    f"border-radius:10px;padding:10px 12px;border:1px solid rgba(255,255,255,0.06);margin-top:6px;margin-bottom:14px'>{desc}</div>",
                     unsafe_allow_html=True
                 )
         else:
             st.caption("Company data loading…")
 
-    # ── ALL TICKERS COMPARISON
-    st.markdown("---")
-    st.markdown("#### 📊 Market Overview — All Tracked Tickers")
-    if _client_ok:
-        all_q = []
-        for t in DEFAULT_TICKERS:  # Use default 6 for comparison (consistent)
-            try:
-                q = backend["client"].get_ticker_quote(t)
-                all_q.append({
-                    "Ticker": t,
-                    "Close":  safe_num(q.get("close_price",0)),
-                    "Open":   safe_num(q.get("open_price",0)),
-                    "High":   safe_num(q.get("high_price",0)),
-                    "Low":    safe_num(q.get("low_price",0)),
-                })
-            except: pass
-
-        if all_q:
-            df_all = pd.DataFrame(all_q)
-            df_all["Δ%"]    = ((df_all["Close"]-df_all["Open"])/df_all["Open"]*100).round(2)
-            df_all["Color"] = df_all["Δ%"].apply(lambda x: "#10B981" if x>=0 else "#EF4444")
-
-            ov1, ov2 = st.columns(2)
-            with ov1:
-                # Day Change % — the MEANINGFUL chart
-                fig_d = go.Figure(go.Bar(
-                    x=df_all["Ticker"], y=df_all["Δ%"],
-                    marker_color=df_all["Color"].tolist(), opacity=0.88,
-                    text=[f"{v:+.2f}%" for v in df_all["Δ%"]],
-                    textposition="outside",
-                    textfont=dict(color=TEXT_COLOR, size=11),
-                ))
-                dark_layout(fig_d, height=280, title="Intraday Change % (Open → Close)", show_legend=False)
-                fig_d.update_layout(yaxis_title="% Change")
-                fig_d.add_hline(y=0, line_dash="dot", line_color="rgba(255,255,255,0.2)")
-                st.plotly_chart(fig_d, use_container_width=True)
-
-            with ov2:
-                # Volume comparison
-                vols = []
-                for t in DEFAULT_TICKERS:
-                    try:
-                        q = backend["client"].get_ticker_quote(t)
-                        vols.append({"Ticker": t, "Volume (M)": safe_num(q.get("volume",0))/1e6})
-                    except: pass
-                if vols:
-                    df_v = pd.DataFrame(vols)
-                    colors_v = ["#6366F1","#10B981","#F59E0B","#EF4444","#3B82F6","#8B5CF6"]
-                    fig_v = go.Figure(go.Bar(
-                        x=df_v["Ticker"], y=df_v["Volume (M)"],
-                        marker_color=colors_v[:len(df_v)], opacity=0.85,
-                        text=[f"{v:.1f}M" for v in df_v["Volume (M)"]],
-                        textposition="outside",
-                        textfont=dict(color=TEXT_COLOR, size=11),
-                    ))
-                    dark_layout(fig_v, height=280, title="Today's Trading Volume (Millions)", show_legend=False)
-                    st.plotly_chart(fig_v, use_container_width=True)
-
-    # ── NEWS FEED
-    st.markdown("---")
-    st.markdown(f"#### 📰 Latest News — {selected}")
-    news_rows = run_query(
-        "SELECT ticker,title,publisher,published_utc,sentiment,article_url "
-        "FROM news_articles WHERE ticker=%s ORDER BY published_utc DESC LIMIT 5;",
-        (selected,)
-    )
-    if news_rows:
-        for n in news_rows:
-            badge = sentiment_badge(n.get("sentiment"))
-            date  = fmt_date(n.get("published_utc"))
-            url   = safe_str(n.get("article_url"), "#")
-            title = safe_str(n.get("title"), "Market Update")
-            pub   = safe_str(n.get("publisher"), "—")
-            link  = f'<a href="{url}" target="_blank" style="color:#6366F1">Read ↗</a>' if url != "#" else ""
-            st.markdown(
-                f"<div class='news-card'>"
-                f"<div class='news-title'>{badge}&nbsp; {title}</div>"
-                f"<div class='news-meta'>{pub} · {date} &nbsp; {link}</div>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-    else:
-        st.info("No news indexed for this ticker yet. Click **Refresh ETL & RAG Pipeline** in the sidebar.")
+        # 📰 NEWS FEED IN RIGHT COLUMN (As Requested)
+        st.markdown(f"#### 📰 Latest News — {selected}")
+        news_rows = run_query(
+            "SELECT ticker,title,publisher,published_utc,sentiment,article_url "
+            "FROM news_articles WHERE ticker=%s ORDER BY published_utc DESC LIMIT 5;",
+            (selected,)
+        )
+        if news_rows:
+            for n in news_rows:
+                badge = sentiment_badge(n.get("sentiment"))
+                date  = fmt_date(n.get("published_utc"))
+                url   = safe_str(n.get("article_url"), "#")
+                title = safe_str(n.get("title"), "Market Update")
+                pub   = safe_str(n.get("publisher"), "—")
+                link  = f'<a href="{url}" target="_blank" style="color:#6366F1">Read ↗</a>' if url != "#" else ""
+                st.markdown(
+                    f"<div class='news-card'>"
+                    f"<div class='news-title'>{badge}&nbsp; {title}</div>"
+                    f"<div class='news-meta'>{pub} · {date} &nbsp; {link}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.info("No news articles indexed for this ticker yet.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2 — VECTOR RAG SEARCH
@@ -760,12 +766,17 @@ with tab2:
     for col, (label, qtext) in zip(chip_cols, CHIPS.items()):
         if col.button(label, use_container_width=True): preset = qtext
 
-    col_q, col_f, col_k = st.columns([4,1,1])
+    col_q, col_f, col_k = st.columns([4,2,1])
     with col_q:
         search_q = st.text_input("Semantic query",
             value=preset or "AI infrastructure data center high compute enterprise demand", key="rag_q")
     with col_f:
-        filter_tick = st.selectbox("Ticker filter", ["All"] + (ALL_TICKERS or DEFAULT_TICKERS), key="rag_tick")
+        filter_tick = st.selectbox(
+            "Filter Ticker",
+            ["All"] + ALL_TICKERS,
+            format_func=lambda t: "All Tickers" if t == "All" else get_ticker_label(t),
+            key="rag_tick"
+        )
     with col_k:
         top_k = st.slider("Top K", 1, 10, 5, key="rag_k")
 
@@ -815,7 +826,7 @@ with tab2:
                 chunk = safe_str(r.get("chunk_text"),"")
                 url   = safe_str(r.get("article_url"),"#")
                 date  = fmt_date(r.get("published_utc"))
-                with st.expander(f"#{i+1}  [{tick}]  {title[:72]}…  — {score:.3f}"):
+                with st.expander(f"#{i+1}  [{tick} — {TICKER_NAMES.get(tick, tick)}]  {title[:72]}…  — {score:.3f}"):
                     c1, c2 = st.columns([1,5])
                     c1.metric("Score", f"{score:.3f}")
                     c2.progress(min(int(score*100),100))
@@ -826,12 +837,41 @@ with tab2:
             st.warning("No matching documents. Try different query or Refresh ETL.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — PORTFOLIO WATCHLIST (Phase 1: Fixed chart)
+# TAB 3 — PORTFOLIO WATCHLIST (OVERHAULED: INLINE DATA EDITOR & BULK DELETE)
 # ══════════════════════════════════════════════════════════════════════════════
 with tab3:
-    st.markdown("### ⭐ Portfolio Watchlist")
-    st.caption("Live read/write against Lakebase `watchlist_tickers` table.")
+    st.markdown("### ⭐ Portfolio Watchlist Manager")
+    st.caption("Live read, inline write/update, and bulk management against Lakebase `watchlist_tickers` table.")
 
+    # ── Top Action Bar (Add Ticker Modal + Bulk Actions)
+    top_act1, top_act2 = st.columns([3, 1])
+
+    with top_act1:
+        with st.popover("➕ Add New Ticker to Watchlist", use_container_width=False):
+            st.markdown("#### Add Ticker to Portfolio")
+            with st.form("inline_add_form", clear_on_submit=True):
+                new_tick = st.text_input("Ticker Symbol", placeholder="e.g. SPY, QQQ, META, AMD, VOO…").strip().upper()
+                new_buy  = st.number_input("Target Buy Price ($)", min_value=0.0, value=120.0, step=5.0)
+                new_sell = st.number_input("Target Sell Price ($)", min_value=0.0, value=160.0, step=5.0)
+                new_note = st.text_area("Thesis Note", value="Strategic portfolio holding.", height=60)
+                if st.form_submit_button("💾 Save Ticker", type="primary", use_container_width=True):
+                    if not new_tick or not new_tick.isalpha():
+                        st.error("Please enter a valid ticker symbol.")
+                    else:
+                        run_write("INSERT INTO companies(ticker,name) VALUES(%s,%s) ON CONFLICT DO NOTHING;", (new_tick, TICKER_NAMES.get(new_tick, f"{new_tick} Corp")))
+                        run_write("""
+                            INSERT INTO watchlist_tickers(watchlist_id,ticker,target_buy_price,target_sell_price,notes)
+                            VALUES('default_watchlist',%s,%s,%s,%s)
+                            ON CONFLICT(watchlist_id,ticker) DO UPDATE SET
+                                target_buy_price=EXCLUDED.target_buy_price,
+                                target_sell_price=EXCLUDED.target_sell_price,
+                                notes=EXCLUDED.notes;
+                        """, (new_tick, new_buy, new_sell, new_note))
+                        get_ticker_display_data.clear()
+                        st.toast(f"✅ Added {new_tick} to watchlist!")
+                        st.rerun()
+
+    # Query Watchlist Rows
     wl_rows = run_query("""
         SELECT wt.ticker, COALESCE(c.name, wt.ticker) AS name,
                wt.target_buy_price, wt.target_sell_price, wt.notes, wt.added_at
@@ -842,27 +882,68 @@ with tab3:
     """)
 
     if wl_rows:
-        # ── Styled HTML table (Phase 1: replaces st.dataframe)
-        rows_html = ""
-        for r in wl_rows:
-            buy_t  = safe_num(r.get("target_buy_price",0))
-            sell_t = safe_num(r.get("target_sell_price",0))
-            rows_html += (
-                f"<tr><td><strong>{safe_str(r.get('ticker'))}</strong></td>"
-                f"<td>{safe_str(r.get('name'))}</td>"
-                f"<td>${buy_t:.2f}</td><td>${sell_t:.2f}</td>"
-                f"<td style='color:#A0AEC0;font-size:0.82rem'>{safe_str(r.get('notes'))[:50]}…</td>"
-                f"<td>{fmt_date(r.get('added_at'))}</td></tr>"
-            )
-        st.markdown(
-            f"<div class='table-wrap'><table class='health-table'>"
-            f"<thead><tr><th>Ticker</th><th>Company</th><th>Buy Target</th>"
-            f"<th>Sell Target</th><th>Thesis</th><th>Added</th></tr></thead>"
-            f"<tbody>{rows_html}</tbody></table></div>",
-            unsafe_allow_html=True
+        # Prepare DataFrame for st.data_editor
+        df_wl_raw = pd.DataFrame(wl_rows)
+        df_wl_raw["Delete"] = False
+        df_wl_raw["Buy Target ($)"] = df_wl_raw["target_buy_price"].apply(safe_num)
+        df_wl_raw["Sell Target ($)"] = df_wl_raw["target_sell_price"].apply(safe_num)
+        df_wl_raw["Thesis Notes"] = df_wl_raw["notes"].fillna("")
+        df_wl_raw["Company Name"] = df_wl_raw.apply(lambda r: f"{r['ticker']} — {r['name']}", axis=1)
+
+        # Select columns to display in editor
+        editor_df = df_wl_raw[["Delete", "ticker", "Company Name", "Buy Target ($)", "Sell Target ($)", "Thesis Notes"]].copy()
+
+        st.markdown("**Watchlist Table (Edit cells directly or select rows to delete):**")
+        edited_df = st.data_editor(
+            editor_df,
+            column_config={
+                "Delete": st.column_config.CheckboxColumn("🗑️ Delete", help="Select rows to delete", default=False),
+                "ticker": st.column_config.TextColumn("Ticker", disabled=True),
+                "Company Name": st.column_config.TextColumn("Company", disabled=True),
+                "Buy Target ($)": st.column_config.NumberColumn("Target Buy ($)", min_value=0.0, format="$%.2f"),
+                "Sell Target ($)": st.column_config.NumberColumn("Target Sell ($)", min_value=0.0, format="$%.2f"),
+                "Thesis Notes": st.column_config.TextColumn("Thesis / Notes", width="large"),
+            },
+            hide_index=True,
+            use_container_width=True,
+            key="watchlist_editor"
         )
 
-        # ── PORTFOLIO CHARTS (Phase 1: Fixed — % vs target, not absolute $)
+        # Action Buttons below editor
+        btn_col1, btn_col2, _ = st.columns([1.5, 1.5, 3])
+
+        with btn_col1:
+            if st.button("💾 Save Table Updates", type="primary", use_container_width=True):
+                # Update Lakebase DB for changed rows
+                updated_count = 0
+                for _, row in edited_df.iterrows():
+                    t = row["ticker"]
+                    b = safe_num(row["Buy Target ($)"])
+                    s = safe_num(row["Sell Target ($)"])
+                    n = str(row["Thesis Notes"])
+                    run_write("""
+                        UPDATE watchlist_tickers
+                        SET target_buy_price=%s, target_sell_price=%s, notes=%s
+                        WHERE watchlist_id='default_watchlist' AND ticker=%s;
+                    """, (b, s, n, t))
+                    updated_count += 1
+                st.toast(f"✅ Updated {updated_count} watchlist entries!")
+                st.rerun()
+
+        with btn_col2:
+            to_delete = edited_df[edited_df["Delete"] == True]["ticker"].tolist()
+            if to_delete:
+                if st.button(f"🗑️ Delete Selected ({len(to_delete)})", use_container_width=True):
+                    for t_del in to_delete:
+                        run_write("DELETE FROM watchlist_tickers WHERE watchlist_id='default_watchlist' AND ticker=%s;", (t_del,))
+                    st.toast(f"✅ Deleted {len(to_delete)} ticker(s)!")
+                    st.rerun()
+            else:
+                st.button("🗑️ Delete Selected (0)", disabled=True, use_container_width=True)
+
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+        # ── PORTFOLIO CHARTS
         if _client_ok:
             pdata = []
             for r in wl_rows:
@@ -875,12 +956,11 @@ with tab3:
                     pct_buy  = ((curr - buy_t)  / buy_t  * 100) if buy_t  else 0
                     pct_sell = ((curr - sell_t) / sell_t * 100) if sell_t else 0
                     pdata.append({
-                        "Ticker": t,
+                        "Ticker": f"{t} ({TICKER_NAMES.get(t,t)})",
                         "Current ($)": curr,
                         "Buy Target ($)": buy_t,
                         "Sell Target ($)": sell_t,
                         "% vs Buy":  round(pct_buy,  2),
-                        "% vs Sell": round(pct_sell, 2),
                     })
                 except: pass
 
@@ -889,7 +969,6 @@ with tab3:
                 wl1, wl2 = st.columns(2)
 
                 with wl1:
-                    # % above/below buy target — the meaningful version
                     colors_p = ["#10B981" if v>=0 else "#EF4444" for v in df_p["% vs Buy"]]
                     fig_pct = go.Figure(go.Bar(
                         x=df_p["Ticker"], y=df_p["% vs Buy"],
@@ -903,7 +982,6 @@ with tab3:
                     st.plotly_chart(fig_pct, use_container_width=True)
 
                 with wl2:
-                    # Buy-to-Sell target spread visualization
                     fig_tgt = go.Figure()
                     fig_tgt.add_trace(go.Bar(
                         name="Current Price", x=df_p["Ticker"], y=df_p["Current ($)"],
@@ -923,101 +1001,71 @@ with tab3:
                     st.plotly_chart(fig_tgt, use_container_width=True)
 
     else:
-        st.info("Your watchlist is empty. Add your first ticker below!")
-
-    st.markdown("---")
-    add_col, del_col = st.columns(2)
-    with add_col:
-        st.markdown("#### ➕ Add / Update Ticker")
-        with st.form("wl_add", clear_on_submit=True):
-            t_raw  = st.text_input("Ticker Symbol", placeholder="e.g. SPY, QQQ, META, AMD, VOO…")
-            buy_p  = st.number_input("Target Buy Price ($)",  min_value=0.0, value=120.0, step=5.0)
-            sell_p = st.number_input("Target Sell Price ($)", min_value=0.0, value=160.0, step=5.0)
-            thesis = st.text_area("Investment Thesis", "Strong structural tailwinds in AI compute infrastructure.", height=75)
-            if st.form_submit_button("💾 Save to Lakebase", use_container_width=True, type="primary"):
-                t = t_raw.strip().upper()
-                if not t: st.error("Enter a ticker symbol.")
-                elif not t.isalpha() or len(t)>6: st.error("Ticker must be 1–6 letters.")
-                else:
-                    run_write("INSERT INTO companies(ticker,name) VALUES(%s,%s) ON CONFLICT DO NOTHING;", (t,f"{t} Corp"))
-                    run_write("""
-                        INSERT INTO watchlist_tickers(watchlist_id,ticker,target_buy_price,target_sell_price,notes)
-                        VALUES('default_watchlist',%s,%s,%s,%s)
-                        ON CONFLICT(watchlist_id,ticker) DO UPDATE SET
-                            target_buy_price=EXCLUDED.target_buy_price,
-                            target_sell_price=EXCLUDED.target_sell_price,
-                            notes=EXCLUDED.notes;
-                    """, (t, buy_p, sell_p, thesis))
-                    get_all_tickers.clear()
-                    st.success(f"✅ {t} saved!"); st.rerun()
-
-    with del_col:
-        st.markdown("#### 🗑️ Remove Ticker")
-        existing = [r["ticker"] for r in (wl_rows or [])]
-        if not existing:
-            st.info("Nothing to remove — watchlist is empty.")
-        else:
-            with st.form("wl_del", clear_on_submit=False):
-                t_del = st.selectbox("Ticker to Remove", existing, key="wl_del_tick")
-                if st.form_submit_button("🗑️ Remove from Watchlist", use_container_width=True):
-                    cnt = run_write("DELETE FROM watchlist_tickers WHERE watchlist_id='default_watchlist' AND ticker=%s;", (t_del,))
-                    st.success(f"✅ Removed {t_del}") if cnt>0 else st.warning(f"{t_del} not found")
-                    st.rerun()
+        st.info("Your watchlist is currently empty. Click **➕ Add New Ticker to Watchlist** above to add items.")
 
     st.markdown("---")
     nc, rc = st.columns(2)
     with nc:
-        st.markdown("#### 📝 Research Notes")
+        st.markdown("#### 📝 Saved Research Notes")
         note_rows = run_query("SELECT ticker,title,content,created_at FROM research_notes ORDER BY created_at DESC LIMIT 6;")
         if note_rows:
             for n in note_rows:
-                with st.expander(f"[{safe_str(n.get('ticker'))}] {safe_str(n.get('title'))[:55]}"):
+                t = safe_str(n.get('ticker'))
+                with st.expander(f"[{get_ticker_label(t)}] {safe_str(n.get('title'))[:55]}"):
                     st.write(safe_str(n.get("content")))
                     st.caption(f"📅 {fmt_ts(n.get('created_at'))}")
         else:
-            st.caption("No notes yet — ask the AI Copilot to save one!")
+            st.caption("No notes saved yet — ask the AI Copilot to save a research note!")
     with rc:
-        st.markdown("#### 📊 Analysis Reports")
+        st.markdown("#### 📊 AI Analysis Reports")
         rep_rows = run_query("SELECT ticker,recommendation,summary,bull_case,bear_case,created_at FROM analysis_reports ORDER BY created_at DESC LIMIT 6;")
         if rep_rows:
             for r in rep_rows:
+                t = safe_str(r.get('ticker'))
                 rec = safe_str(r.get("recommendation"),"HOLD")
                 ico = "🟢" if rec=="BUY" else ("🔴" if rec=="SELL" else "🟡")
-                with st.expander(f"{ico} [{safe_str(r.get('ticker'))}] {rec} · {fmt_date(r.get('created_at'))}"):
+                with st.expander(f"{ico} [{get_ticker_label(t)}] {rec} · {fmt_date(r.get('created_at'))}"):
                     st.write(f"**Summary:** {safe_str(r.get('summary'))}")
                     st.write(f"**Bull:** {safe_str(r.get('bull_case'))}")
                     st.write(f"**Bear:** {safe_str(r.get('bear_case'))}")
         else:
-            st.caption("No reports yet — ask the AI Copilot to generate one!")
+            st.caption("No analysis reports generated yet — ask the AI Copilot!")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — AI COPILOT CHAT (Phase 2: Session-based, fixed layout)
+# TAB 4 — AI COPILOT CHAT (WITH IN-TAB SESSION HISTORY & CLEAR ACTION)
 # ══════════════════════════════════════════════════════════════════════════════
 with tab4:
-    # ── Chat header
-    st.markdown(f"""
-    <div style="display:flex;align-items:center;justify-content:space-between;
-                padding:12px 18px;background:rgba(99,102,241,0.08);
-                border:1px solid rgba(99,102,241,0.2);border-radius:12px;margin-bottom:14px">
-      <div>
-        <div style="font-size:1.0rem;font-weight:700;color:#E8EDFF">🤖 AI Investment Copilot</div>
-        <div style="font-size:0.75rem;color:#8892A4;margin-top:2px">
-          ReAct agent with READ (RAG, quotes, watchlist) and WRITE (add/remove, notes, reports) tools
+    # Chat Header with Session Info & Clear Button directly in tab!
+    ch_col1, ch_col2 = st.columns([3, 1])
+
+    with ch_col1:
+        st.markdown(f"""
+        <div style="padding:10px 16px;background:rgba(99,102,241,0.08);
+                    border:1px solid rgba(99,102,241,0.2);border-radius:12px">
+          <div style="font-size:1.0rem;font-weight:700;color:#E8EDFF">🤖 AI Investment Copilot</div>
+          <div style="font-size:0.75rem;color:#8892A4;margin-top:2px">
+            ReAct agent with READ (RAG, quotes, watchlist) and WRITE (add/remove, notes, reports) capabilities
+          </div>
         </div>
-      </div>
-      <div style="text-align:right">
-        <span class="badge-sess">Session: {SID}</span>
-        <div style="font-size:0.70rem;color:#4B5568;margin-top:4px">
-          {len(st.session_state.messages)} messages · started {st.session_state.session_started}
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+
+    with ch_col2:
+        st.markdown(f"<span class='badge-sess'>Session: {SID}</span>", unsafe_allow_html=True)
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state.messages = [{
+                "role": "assistant",
+                "content": "Chat history cleared for this session.",
+                "actions": [],
+                "ts": datetime.now().strftime("%H:%M"),
+            }]
+            st.rerun()
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
     if not _agent_ok:
         st.error(f"⚠️ AI Agent unavailable: {backend.get('agent_error','Unknown')}")
     else:
-        # ── Quick command chips
+        # Quick Commands
         st.markdown("**Quick Commands:**")
         qc = st.columns(5)
         qp = None
@@ -1029,13 +1077,12 @@ with tab4:
 
         st.markdown("---")
 
-        # ── SCROLLABLE FIXED-HEIGHT message container (Phase 2 fix)
-        chat_box = st.container(height=460)
+        # Fixed height scrollable chat box
+        chat_box = st.container(height=450)
         with chat_box:
             for msg in st.session_state.messages:
                 role = msg["role"]
                 with st.chat_message(role):
-                    # Timestamp + session label in header
                     ts = msg.get("ts","")
                     if role == "user":
                         st.markdown(
@@ -1053,9 +1100,9 @@ with tab4:
                     for act in msg.get("actions", []):
                         st.markdown(f"<span class='badge-action'>⚡ {act}</span>", unsafe_allow_html=True)
 
-        # ── Chat input BELOW the container (stays pinned)
+        # Chat Input pinned below container
         user_input = st.chat_input(
-            f"Ask the AI Copilot anything… [Session {SID}]",
+            f"Ask AI Copilot… [Session {SID}]",
             key="agent_chat_input"
         ) or qp
 
@@ -1107,12 +1154,11 @@ with tab4:
                 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 5 — SYSTEM HEALTH (Phase 1: HTML table, no st.dataframe)
+# TAB 5 — SYSTEM HEALTH
 # ══════════════════════════════════════════════════════════════════════════════
 with tab5:
     st.markdown("### ⚡ Pipeline & System Health")
 
-    # ── Status metric row
     h1,h2,h3,h4 = st.columns(4)
     h1.metric("Lakebase DB",    "Online"  if _db_ok    else "Offline")
     h2.metric("RAG Engine",     "Active"  if _rag_ok   else "Error")
@@ -1122,7 +1168,6 @@ with tab5:
     st.markdown("---")
     st.markdown("#### 🗄️ Lakebase Table Record Audit")
 
-    # ── CUSTOM HTML TABLE (Phase 1: replaces broken st.dataframe)
     db_tables = [
         ("users",             "User accounts"),
         ("companies",         "Company metadata"),
