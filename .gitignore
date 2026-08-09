@@ -1,6 +1,21 @@
+# Submission folders and zip packages
+capestone_proj - submit/
+capestone_proj - submit.zip
+bootcamp-assignment*
+bootcamp*
+dummy/
+
+# Secrets and private configuration
 .env
+*.env
+myNotes.txt
+
+# Storage and PySpark output
+storage/
+
+# Python cache & virtual environments
 __pycache__/
 *.pyc
+.pytest_cache/
 .venv/
-venv/
-.idea/
+env/
