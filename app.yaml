@@ -1,15 +1,8 @@
 command:
-  - "python"
-  - "app.py"
-
-env:
-  - name: LAKEBASE_SECRET_SCOPE
-    value: "database"
-  - name: LAKEBASE_SECRET_KEY
-    value: "lakebase-url"
-  - name: MASSIVE_API_BASE_URL
-    value: "https://api.massive.com"
-  - name: MASSIVE_SECRET_SCOPE
-    value: "massive"
-  - name: MASSIVE_SECRET_KEY
-    value: "api-key"
+  - "streamlit"
+  - "run"
+  - "capestone_proj/app.py"
+  - "--server.port"
+  - "8000"
+  - "--server.address"
+  - "0.0.0.0"
